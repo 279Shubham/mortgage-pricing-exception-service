@@ -1,10 +1,10 @@
 package com.blueharvest.pricingexception.web;
 
-import com.blueharvest.pricingexception.service.ConflictException;
-import com.blueharvest.pricingexception.service.ForbiddenException;
-import com.blueharvest.pricingexception.service.IdempotencyKeyReusedException;
-import com.blueharvest.pricingexception.service.InvalidRequestException;
-import com.blueharvest.pricingexception.service.NotFoundException;
+import com.blueharvest.pricingexception.service.exception.ConflictException;
+import com.blueharvest.pricingexception.service.exception.ForbiddenException;
+import com.blueharvest.pricingexception.service.exception.IdempotencyKeyReusedException;
+import com.blueharvest.pricingexception.service.exception.InvalidRequestException;
+import com.blueharvest.pricingexception.service.exception.NotFoundException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.dao.PessimisticLockingFailureException;

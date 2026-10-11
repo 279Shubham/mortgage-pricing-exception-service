@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.service;
+package com.blueharvest.pricingexception.service.exception;
 
 public class ForbiddenException extends RuntimeException {
 

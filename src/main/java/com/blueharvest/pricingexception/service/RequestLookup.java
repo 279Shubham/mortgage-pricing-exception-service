@@ -4,6 +4,7 @@ import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestRevision;
 import com.blueharvest.pricingexception.repository.PricingExceptionRequestRepository;
 import com.blueharvest.pricingexception.repository.RequestRevisionRepository;
+import com.blueharvest.pricingexception.service.exception.NotFoundException;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
