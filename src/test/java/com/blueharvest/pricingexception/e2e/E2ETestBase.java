@@ -46,6 +46,15 @@ abstract class E2ETestBase {
 			.when().post("/applications/{applicationId}/pricing-exceptions", applicationId);
 	}
 
+	static Response decide(String userId, String requestId, String action, String idempotencyKey, String body) {
+		return given()
+			.header("X-User-Id", userId)
+			.header("Idempotency-Key", idempotencyKey)
+			.contentType("application/json; charset=UTF-8")
+			.body(body)
+			.when().post("/pricing-exceptions/{id}/{action}", requestId, action);
+	}
+
 	@BeforeEach
 	void resetState() {
 		flyway.clean();
