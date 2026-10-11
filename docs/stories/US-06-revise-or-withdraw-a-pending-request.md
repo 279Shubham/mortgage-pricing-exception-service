@@ -21,8 +21,11 @@ A criterion gets its row in this table when its tests pass.
 | Criterion | Proved by |
 |-----------|-----------|
 | AC-1 | `the requester revises a pending request and gets a new revision with its own advice` |
+| AC-2 | `a decision that states a superseded revision gets 409 and leaves no approved discount` |
 | AC-3 | `the requester withdraws a pending request`<br>`a withdrawn request cannot be decided or revised, and the application accepts a new request` |
-| AC-6 | `a retried withdraw replays the original response and records one withdrawal` |
+| AC-4 | `only the requester may revise or withdraw`<br>`revising or withdrawing a request that is not pending gets 409`<br>`revising or withdrawing an unknown request gets 404` |
+| AC-5 | `an invalid revision is rejected with 400` (13 cases)<br>`a revision on the exact limits is accepted` |
+| AC-6 | `a retried revise replays the original response and creates one revision`<br>`a retried withdraw replays the original response and records one withdrawal` |
 | AC-7 | No automated test: two changes only overlap by timing, so a test for it would be flaky. It is checked on a running service instead, and the counts are recorded under Verification evidence |
 
 ## Plan

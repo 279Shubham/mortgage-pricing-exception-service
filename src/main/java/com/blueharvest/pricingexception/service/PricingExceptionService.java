@@ -79,7 +79,9 @@ public class PricingExceptionService {
 	@Transactional
 	public PricingExceptionResponse revise(Actor caller, ReviseCommand command) {
 		PricingExceptionRequest request = lookup.find(command.requestId());
+		requireRequester(caller, request);
 		requirePending(request);
+		requireValidDiscount(command.discountBps(), findApplication(request.getApplicationId()));
 		Instant now = clock.instant();
 		int number = request.moveToNextRevision();
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
@@ -92,6 +94,7 @@ public class PricingExceptionService {
 	@Transactional
 	public PricingExceptionResponse withdraw(Actor caller, WithdrawCommand command) {
 		PricingExceptionRequest request = lookup.find(command.requestId());
+		requireRequester(caller, request);
 		requirePending(request);
 		request.withdraw();
 		events.save(new RequestEvent(request.getId(), RequestEventType.WITHDRAWN, request.getCurrentRevision(),
@@ -136,6 +139,12 @@ public class PricingExceptionService {
 	private void requireRole(Actor caller, Role role) {
 		if (!caller.roles().contains(role)) {
 			throw new ForbiddenException("Only a relationship manager may submit a pricing exception");
+		}
+	}
+
+	private void requireRequester(Actor caller, PricingExceptionRequest request) {
+		if (!request.getRequestedBy().equals(caller.id())) {
+			throw new ForbiddenException("Only the requester may revise or withdraw a pricing exception request");
 		}
 	}
 
