@@ -56,6 +56,26 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-05 AC-1: the discount comes from the approved revision, not from a later revision")
+	void discountComesFromApprovedRevision() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+		approve("reviewer-ben", id);
+		reviseInDatabase(id, 2, 60);
+		read(id)
+			.body("currentRevision.number", equalTo(2))
+			.body("currentRevision.discountBps", equalTo(60))
+			.body("decision.revisionNumber", equalTo(1));
+
+		approvedDiscounts("application-process", "MA-1001")
+			.statusCode(200)
+			.body("$", hasSize(1))
+			.body("[0].requestId", equalTo(id))
+			.body("[0].revision", equalTo(1))
+			.body("[0].discountBps", equalTo(25))
+			.body("[0].approvedBy", equalTo("reviewer-ben"));
+	}
+
+	@Test
 	@DisplayName("US-05 AC-2: an application without an approval gets an empty list")
 	void applicationWithoutApprovalGetsEmptyList() {
 		approvedDiscounts("application-process", "MA-1002").statusCode(200).body("$", empty());

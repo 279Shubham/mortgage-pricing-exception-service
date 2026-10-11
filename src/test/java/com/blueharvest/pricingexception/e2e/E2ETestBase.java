@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.convention.TestBean;
 
@@ -53,6 +54,21 @@ abstract class E2ETestBase {
 			.contentType("application/json; charset=UTF-8")
 			.body(body)
 			.when().post("/pricing-exceptions/{id}/{action}", requestId, action);
+	}
+
+	void reviseInDatabase(String requestId, int revisionNumber, int discountBps) {
+		JdbcClient database = JdbcClient.create(flyway.getConfiguration().getDataSource());
+		database
+			.sql("INSERT INTO request_revision (id, request_id, revision_number, discount_bps, reason,"
+					+ " advice_recommendation, advice_rationale, created_at)"
+					+ " SELECT RANDOM_UUID(), id, ?, ?, 'Revised directly in the database', 'APPROVE',"
+					+ " 'No advice, the revision was written by a test', submitted_at"
+					+ " FROM pricing_exception_request WHERE id = ?")
+			.params(revisionNumber, discountBps, UUID.fromString(requestId))
+			.update();
+		database.sql("UPDATE pricing_exception_request SET current_revision = ? WHERE id = ?")
+			.params(revisionNumber, UUID.fromString(requestId))
+			.update();
 	}
 
 	@BeforeEach

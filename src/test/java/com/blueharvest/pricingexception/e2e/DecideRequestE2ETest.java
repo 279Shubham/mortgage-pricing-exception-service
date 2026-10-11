@@ -103,6 +103,25 @@ class DecideRequestE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-04 AC-3: an approval of a revision the request has moved on from gets 409")
+	void approvalOfSupersededRevisionIsConflict() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+		reviseInDatabase(id, 2, 60);
+
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+			.then().statusCode(409)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Revision 1 is not the current revision 2"));
+		assertStillPendingAndUndecided(id);
+
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
+			.then().statusCode(200)
+			.body("status", equalTo("APPROVED"))
+			.body("decision.revisionNumber", equalTo(2))
+			.body("currentRevision.discountBps", equalTo(60));
+	}
+
+	@Test
 	@DisplayName("US-04 AC-3: deciding an unknown request gets 404")
 	void unknownRequestIsNotFound() {
 		UUID unknown = UUID.randomUUID();
