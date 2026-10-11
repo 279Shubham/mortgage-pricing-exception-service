@@ -29,6 +29,7 @@ dependencies {
 	runtimeOnly("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("io.rest-assured:rest-assured:6.1.0")
+	testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
