@@ -7,9 +7,12 @@ import static org.hamcrest.Matchers.matchesPattern;
 import io.restassured.response.Response;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class SubmitRequestE2ETest extends E2ETestBase {
@@ -93,6 +96,98 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.then().statusCode(400)
 			.contentType("application/problem+json")
 			.body("status", equalTo(400));
+	}
+
+	@ParameterizedTest(name = "US-02 AC-3: {0} gets 403")
+	@ValueSource(strings = { "reviewer-ben", "reviewer-dana", "application-process" })
+	@DisplayName("US-02 AC-3: a caller without the RM role cannot submit")
+	void onlyAnRmMaySubmit(String userId) {
+		submit(userId, "MA-1001", newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(403)
+			.contentType("application/problem+json")
+			.body("status", equalTo(403));
+	}
+
+	@Test
+	@DisplayName("US-02 AC-2: an unknown application is a 404 Problem Details response")
+	void unknownApplicationIsNotFound() {
+		submit("rm-anna", "NOPE", newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(404)
+			.contentType("application/problem+json")
+			.body("status", equalTo(404))
+			.body("detail", equalTo("Unknown mortgage application NOPE"));
+	}
+
+	@ParameterizedTest(name = "US-02 AC-2: {0} is rejected with 400")
+	@MethodSource("invalidSubmissions")
+	@DisplayName("US-02 AC-2: an invalid submission is rejected with 400")
+	void invalidSubmissionsAreRejected(String label, String applicationId, String body) {
+		submit("rm-anna", applicationId, newIdempotencyKey(), body)
+			.then().statusCode(400)
+			.contentType("application/problem+json")
+			.body("status", equalTo(400));
+	}
+
+	static Stream<Arguments> invalidSubmissions() {
+		String reason = "\"reason\":\"" + VALID_REASON + "\"";
+		return Stream.of(
+				Arguments.of("discountBps 25.9", "MA-1001", "{\"discountBps\":25.9," + reason + "}"),
+				Arguments.of("discountBps 25.0", "MA-1001", "{\"discountBps\":25.0," + reason + "}"),
+				Arguments.of("discountBps \"25\" as a string", "MA-1001", "{\"discountBps\":\"25\"," + reason + "}"),
+				Arguments.of("discountBps 99999999999", "MA-1001", "{\"discountBps\":99999999999," + reason + "}"),
+				Arguments.of("discountBps 0", "MA-1001", body(0, VALID_REASON)),
+				Arguments.of("discountBps -5", "MA-1001", body(-5, VALID_REASON)),
+				Arguments.of("discountBps 201", "MA-1001", body(201, VALID_REASON)),
+				Arguments.of("discountBps 150 on MA-1006 (its standard rate)", "MA-1006", body(150, VALID_REASON)),
+				Arguments.of("discountBps 151 on MA-1006", "MA-1006", body(151, VALID_REASON)),
+				Arguments.of("a missing discountBps", "MA-1001", "{" + reason + "}"),
+				Arguments.of("a null discountBps", "MA-1001", "{\"discountBps\":null," + reason + "}"),
+				Arguments.of("a missing reason", "MA-1001", "{\"discountBps\":25}"),
+				Arguments.of("a reason of ten spaces", "MA-1001", body(25, " ".repeat(10))),
+				Arguments.of("a 9-character reason", "MA-1001", body(25, "x".repeat(9))),
+				Arguments.of("a 1001-character reason", "MA-1001", body(25, "x".repeat(1001))),
+				Arguments.of("an unknown extra field", "MA-1001", "{\"discountBps\":25," + reason + ",\"unexpected\":1}"),
+				Arguments.of("a client-supplied requestedBy", "MA-1001",
+						"{\"discountBps\":25," + reason + ",\"requestedBy\":\"rm-carl\"}"),
+				Arguments.of("a client-supplied status", "MA-1001",
+						"{\"discountBps\":25," + reason + ",\"status\":\"APPROVED\"}"),
+				Arguments.of("an empty body", "MA-1001", ""),
+				Arguments.of("malformed JSON", "MA-1001", "{"));
+	}
+
+	@ParameterizedTest(name = "US-02 AC-2: {0} is accepted")
+	@MethodSource("boundaryValues")
+	@DisplayName("US-02 AC-2: values on the exact boundaries are accepted")
+	void boundaryValuesAreAccepted(String label, String applicationId, int discountBps, String reason) {
+		Response created = submit("rm-anna", applicationId, newIdempotencyKey(), body(discountBps, reason));
+		created.then().statusCode(201);
+
+		given()
+			.header("X-User-Id", "rm-anna")
+			.when().get(created.header("Location"))
+			.then().statusCode(200)
+			.body("currentRevision.discountBps", equalTo(discountBps))
+			.body("currentRevision.reason", equalTo(reason));
+	}
+
+	static Stream<Arguments> boundaryValues() {
+		return Stream.of(
+				Arguments.of("1 bps with a 10-character reason", "MA-1001", 1, "x".repeat(10)),
+				Arguments.of("200 bps with a 1000-character reason", "MA-1002", 200, "x".repeat(1000)),
+				Arguments.of("149 bps on MA-1006", "MA-1006", 149, VALID_REASON),
+				Arguments.of("a reason of ten euro signs", "MA-1003", 25, "\u20ac".repeat(10)));
+	}
+
+	@Test
+	@DisplayName("US-02 AC-2: a rejected submission creates nothing")
+	void rejectedSubmissionCreatesNothing() {
+		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(150, VALID_REASON))
+			.then().statusCode(400);
+		submit("reviewer-ben", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
+			.then().statusCode(403);
+
+		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
+			.then().statusCode(201);
 	}
 
 	private static String body(int discountBps, String reason) {
