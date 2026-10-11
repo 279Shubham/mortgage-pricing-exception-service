@@ -4,7 +4,6 @@ import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.model.Actor;
 import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
-import com.blueharvest.pricingexception.model.RequestEventType;
 import com.blueharvest.pricingexception.model.RequestRevision;
 import com.blueharvest.pricingexception.model.RequestStatus;
 import com.blueharvest.pricingexception.model.Role;
@@ -45,8 +44,8 @@ public class DecisionService {
 		requireCurrentRevision(command.revisionNumber(), request);
 		Instant now = clock.instant();
 		request.decide(command.outcome(), caller.id(), command.revisionNumber(), command.note(), now);
-		events.save(new RequestEvent(request.getId(), RequestEventType.valueOf(command.outcome().name()),
-				command.revisionNumber(), caller.id(), now));
+		events.save(new RequestEvent(request.getId(), command.outcome().eventType(), command.revisionNumber(),
+				caller.id(), now));
 		return PricingExceptionResponse.from(request, currentRevision(request));
 	}
 

@@ -6,6 +6,7 @@ import com.blueharvest.pricingexception.dto.DeclineRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
 import com.blueharvest.pricingexception.model.Actor;
+import com.blueharvest.pricingexception.model.DecisionOutcome;
 import com.blueharvest.pricingexception.model.RequestStatus;
 import com.blueharvest.pricingexception.service.DecideCommand;
 import com.blueharvest.pricingexception.service.DecisionService;
@@ -77,7 +78,7 @@ class PricingExceptionController {
 	ResponseEntity<String> approve(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody ApproveRequestBody body) {
-		DecideCommand command = new DecideCommand(id, RequestStatus.APPROVED, body.revisionNumber(), null);
+		DecideCommand command = new DecideCommand(id, DecisionOutcome.APPROVE, body.revisionNumber(), null);
 		return decide(caller, "approve", idempotencyKey, command);
 	}
 
@@ -85,7 +86,7 @@ class PricingExceptionController {
 	ResponseEntity<String> decline(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody DeclineRequestBody body) {
-		DecideCommand command = new DecideCommand(id, RequestStatus.DECLINED, body.revisionNumber(), body.note());
+		DecideCommand command = new DecideCommand(id, DecisionOutcome.DECLINE, body.revisionNumber(), body.note());
 		return decide(caller, "decline", idempotencyKey, command);
 	}
 

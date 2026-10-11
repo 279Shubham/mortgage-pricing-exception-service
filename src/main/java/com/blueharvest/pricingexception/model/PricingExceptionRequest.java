@@ -112,8 +112,9 @@ public class PricingExceptionRequest {
 		this.previousRequestId = previousRequestId;
 	}
 
-	public void decide(RequestStatus outcome, String reviewerId, int revisionNumber, String note, Instant decidedAt) {
-		this.status = outcome;
+	public void decide(DecisionOutcome outcome, String reviewerId, int revisionNumber, String note,
+			Instant decidedAt) {
+		this.status = outcome.status();
 		this.decidedBy = reviewerId;
 		this.decidedRevision = revisionNumber;
 		this.decisionNote = note;
