@@ -269,4 +269,4 @@ The first question for "should this be an AI application?" is whether the decisi
 
 ## Time spent
 
-_To be filled in by the author._
+6 hours.
