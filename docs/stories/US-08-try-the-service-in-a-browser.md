@@ -18,7 +18,7 @@ End-to-end test: `BrowserPageE2ETest`.
 | Criterion | Proved by |
 |-----------|-----------|
 | AC-1 | `the page is served at the root and loads nothing from another host` |
-| AC-2 to AC-6 | No automated test: the page only calls endpoints that the other stories test. It was walked through by hand; see Verification evidence |
+| AC-2 to AC-6 | No automated test: the page only calls endpoints that the other stories test |
 
 ## Plan
 
@@ -32,4 +32,8 @@ Not reviewed yet.
 
 ## Verification evidence
 
-Not captured yet: the story is still open.
+**(a) Full build.** `./gradlew check` passed with the page in place: 143 tests, 0 failures, 0 errors.
+
+**(b) Served by a running service.** `GET /` answered `200 text/html`, and the page's script passed a syntax check (`node --check`).
+
+Not captured: a walk through the page in a browser. AC-2 to AC-6 have not been checked by a person yet.

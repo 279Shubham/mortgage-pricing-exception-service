@@ -52,6 +52,8 @@ The tests are end-to-end only, and their names follow the story acceptance crite
 
 ## Explore the API
 
+**In a browser.** Open `http://localhost:8080/` for a single page that walks the whole flow: pick a seeded user at the top right, submit a request, then switch user to approve, decline, revise or withdraw it, and open its history. The page offers every action to every user and shows the service's answer, so a refusal such as `403` is visible too.
+
 **Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id: one interceptor checks the caller before any controller runs, so a new endpoint is protected by default. Actuator endpoints are served outside that caller check, so only `/actuator/health` is exposed and the actuator discovery page (`/actuator`) is switched off. A missing or unknown id gets `401` with an `application/problem+json` body:
 
 ```json
@@ -290,6 +292,7 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-05 Read the approved discount](docs/stories/US-05-read-the-approved-discount.md) | `ApprovedDiscountE2ETest` |
 | [US-06 Revise or withdraw a pending request](docs/stories/US-06-revise-or-withdraw-a-pending-request.md) | `ReviseWithdrawE2ETest` |
 | [US-07 See a request's full history](docs/stories/US-07-see-a-request-full-history.md) | `RequestHistoryE2ETest` |
+| [US-08 Try the service in a browser](docs/stories/US-08-try-the-service-in-a-browser.md) | `BrowserPageE2ETest` |
 
 From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
 
