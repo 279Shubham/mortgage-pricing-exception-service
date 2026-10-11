@@ -16,6 +16,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,7 +93,12 @@ public class PricingExceptionService {
 	}
 
 	private PricingExceptionRequest insertPending(PricingExceptionRequest request) {
-		return requests.saveAndFlush(request);
+		try {
+			return requests.saveAndFlush(request);
+		}
+		catch (DataIntegrityViolationException pendingExists) {
+			throw new ConflictException("Application " + request.getApplicationId() + " already has a pending request");
+		}
 	}
 
 }

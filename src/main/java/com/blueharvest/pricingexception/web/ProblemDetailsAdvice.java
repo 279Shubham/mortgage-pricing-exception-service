@@ -1,5 +1,6 @@
 package com.blueharvest.pricingexception.web;
 
+import com.blueharvest.pricingexception.service.ConflictException;
 import com.blueharvest.pricingexception.service.ForbiddenException;
 import com.blueharvest.pricingexception.service.InvalidRequestException;
 import com.blueharvest.pricingexception.service.NotFoundException;
@@ -25,6 +26,11 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 	@ExceptionHandler
 	ProblemDetail invalid(InvalidRequestException e) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+	}
+
+	@ExceptionHandler
+	ProblemDetail conflict(ConflictException e) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
 	}
 
 }
