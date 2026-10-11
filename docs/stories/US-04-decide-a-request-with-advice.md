@@ -263,4 +263,4 @@ BUILD SUCCESSFUL in 12s
 
 The test log shows the schema with the new migration: `Successfully applied 9 migrations to schema "public", now at version v9`.
 
-The control-character tests failed first. At `58ae4c8`, before the fix, three of the four new cases failed (two of them belong to US-02, for the reason): the two reasons were accepted with 201 and the decline note with 200, where 400 is expected. The fourth, the 1000-character reason and note of quotes and line breaks, passed on arrival, because it pins what is still accepted. `make test` in a container was not run again after the review fixes.
+The control-character tests failed first. At `58ae4c8`, before the fix, three of the four new cases failed (two of them belong to US-02, for the reason): the two reasons were accepted with 201 and the decline note with 200, where 400 is expected. The fourth, the 1000-character reason and note of quotes and line breaks, passed on arrival, because it pins what is still accepted. `make test` in a container was run again at `e65f456`, after the review fixes: 112 tests passed, none failed, `BUILD SUCCESSFUL in 46s`.

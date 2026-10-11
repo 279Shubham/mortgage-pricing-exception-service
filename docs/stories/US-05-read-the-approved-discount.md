@@ -167,4 +167,4 @@ ApprovedDiscountE2ETest > US-05 AC-1: the application process reads the latest a
 ApprovedDiscountE2ETest > US-05 AC-3: a new request after an approval leaves it effective until the new one is approved PASSED
 ```
 
-`./gradlew check --rerun-tasks --console=plain` with JDK 21 then ran the whole build from scratch: 112 tests, none failed or was skipped, `BUILD SUCCESSFUL in 12s`. The counts per class are in the US-04 trail, part (f). The test log shows `Successfully applied 9 migrations to schema "public", now at version v9`. `make test` in a container was not run again after the review fixes.
+`./gradlew check --rerun-tasks --console=plain` with JDK 21 then ran the whole build from scratch: 112 tests, none failed or was skipped, `BUILD SUCCESSFUL in 12s`. The counts per class are in the US-04 trail, part (f). The test log shows `Successfully applied 9 migrations to schema "public", now at version v9`. `make test` in a container was run again at `e65f456`, after the review fixes: 112 tests passed, none failed, `BUILD SUCCESSFUL in 46s`.
