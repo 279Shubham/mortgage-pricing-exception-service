@@ -15,9 +15,11 @@ As a Blue Harvest reviewer, I want to start the service and run its test suite w
 The story was delivered in four thin slices, each one runnable and tested before the next started:
 
 1. **Runnable, gated build.** A generated Spring Boot 4.1 build with the PMD complexity gate, Flyway schema and seed migrations, and the shared end-to-end harness (one Spring context on a random port, database reset before each test, an injectable clock). Proven on `/actuator/health` from a running service.
-2. **Identity.** `GET /me` resolves the `X-User-Id` caller through the `UserDirectory` port, with 401 Problem Details for a missing or unknown id. Then the ArchUnit architecture test (layering, no direct clock calls), with temporary probes proving that both gates fail the build.
-3. **Exploring the seed.** `GET /applications` through the `ApplicationCatalogue` port, the open `GET /users`, all six seeded ids on `/me`, and the caller and error edge cases (unknown or empty id gives 401, an unknown path gives 404, both as Problem Details).
+2. **Identity.** `GET /me` resolves the `X-User-Id` caller through `UserService` and the Spring Data `UserRepository`, with 401 Problem Details for a missing or unknown id. Then the ArchUnit architecture test (layering, no direct clock calls), with temporary probes proving that both gates fail the build.
+3. **Exploring the seed.** `GET /applications` through `ApplicationService` and `MortgageApplicationRepository`, the open `GET /users`, all six seeded ids on `/me`, and the caller and error edge cases (unknown or empty id gives 401, an unknown path gives 404, both as Problem Details).
 4. **One-command run and test.** A four-stage Dockerfile, `make run` / `make stop` / `make test`, an amd64 run under emulation, a check from a fresh clone, and this documentation.
+
+**Follow-up (2026-10-11).** The code was reorganised from ports and adapters into a plain controller → service → repository layout, for simpler code. Only the Spring Data repositories are interfaces. Behaviour is unchanged: the same 16 end-to-end tests pass, and the architecture test now enforces the new layering.
 
 ## Review notes
 
@@ -48,19 +50,18 @@ RunAndExploreE2ETest > US-01 AC-1: the service reports UP on /actuator/health wi
 RunAndExploreE2ETest > US-01 AC-3: a known caller lists the six fictional seeded applications with integer standard rates in bps PASSED
 ```
 
-### (b) `make test` in a container (commit `451d49b`)
+### (b) `make test` in a container (commit `d5ee30e`)
 
-The same 16 end-to-end tests and the 4 architecture tests passed inside `eclipse-temurin:21-jdk-noble`, after `pmdMain`:
+The same 16 end-to-end tests and the 3 architecture tests passed inside `eclipse-temurin:21-jdk-noble`, after `pmdMain`:
 
 ```
 > Task :pmdMain
 ArchitectureTest > timeComesFromInjectedClock PASSED
 ArchitectureTest > systemClockOnlyInConfig PASSED
-ArchitectureTest > hexagonalLayers PASSED
-ArchitectureTest > domainIsPlainJava PASSED
-RunAndExploreE2ETest > US-01 AC-1: the service reports UP on /actuator/health without X-User-Id PASSED
+ArchitectureTest > controllerServiceRepositoryLayers PASSED
+RunAndExploreE2ETest > US-01 AC-4: an empty X-User-Id is a 401 Problem Details response PASSED
 ...
-BUILD SUCCESSFUL in 37s
+BUILD SUCCESSFUL in 39s
 ```
 
 ### (c) `make run PORT=18080` and `/me` (commit `451d49b`)
@@ -102,7 +103,7 @@ $ curl -H 'X-User-Id: rm-anna' http://localhost:18081/me
 
 The same smokes also passed earlier in the story, when the health endpoint and `/me` were first built.
 
-### (f) The gates fail the build (commit `de7d41c`)
+### (f) The gates fail the build (commits `de7d41c` and `d5ee30e`)
 
 Each line is the failing output from a temporary probe file. The probes were deleted straight after each run and never committed.
 
@@ -112,5 +113,5 @@ Each line is the failing output from a temporary probe file. The probes were del
   `GateProbe.java:3:	CognitiveComplexity:	The method 'nested(int, int, int, int)' has a cognitive complexity of 10, current threshold is 9`
 - ArchUnit clock rule:
   `Method <com.blueharvest.pricingexception.ClockProbe.leak()> calls method <java.time.Instant.now()> in (ClockProbe.java:4)`
-- ArchUnit domain rule:
-  `Class <com.blueharvest.pricingexception.request.domain.SpringProbe> is annotated with <org.springframework.stereotype.Component> in (SpringProbe.java:0)`
+- ArchUnit layering rule (a temporary controller class holding a `UserRepository` field):
+  `Field <com.blueharvest.pricingexception.controller.LayerProbe.users> has type <com.blueharvest.pricingexception.repository.UserRepository> in (LayerProbe.java:0)`

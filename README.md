@@ -45,7 +45,7 @@ make test         # runs every check inside a container, no local JDK needed
 Both commands run three things, and any failure fails the build:
 
 1. **Complexity gate (PMD):** a method with cyclomatic or cognitive complexity above 8 fails the build.
-2. **Architecture test (ArchUnit):** checks the layering (domain, application, adapters) and bans direct `Instant.now()` calls, because time always comes from the injected clock.
+2. **Architecture test (ArchUnit):** checks the layering (controllers call services, and only services use the Spring Data repositories) and bans direct `Instant.now()` calls, because time always comes from the injected clock.
 3. **End-to-end suite:** starts the full service on a random port and calls it over HTTP.
 
 The tests are end-to-end only, and their names follow the story acceptance criteria (for example `US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me`), so the test report reads as a checklist of user stories.
@@ -137,7 +137,7 @@ All seed data is fictional. The service loads it on every start, and it resets o
 
 ## Production readiness gaps
 
-- **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `UserDirectory` adapter is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
+- **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `X-User-Id` lookup in `ActorArgumentResolver` is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
 - **Storage is in-memory.** H2 runs in memory and resets on every restart. The target is Postgres. The Flyway migrations already run in H2's PostgreSQL mode, so the swap is a datasource change plus a migration check.
 - **`GET /users` is open** only to feed the demo user switcher. In production it would be removed or protected.
 - **Single instance.** The service runs as one instance, and health is the only actuator endpoint exposed.
