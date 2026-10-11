@@ -10,7 +10,7 @@ public final class MutableClock extends Clock {
 
 	static final Instant START = Instant.parse("2026-01-15T09:00:00Z");
 
-	private Instant now = START;
+	private volatile Instant now = START;
 
 	@Override
 	public ZoneId getZone() {
