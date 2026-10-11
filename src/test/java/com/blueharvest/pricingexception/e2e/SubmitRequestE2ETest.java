@@ -1,12 +1,21 @@
 package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.nullValue;
 
 import io.restassured.response.Response;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -188,6 +197,48 @@ class SubmitRequestE2ETest extends E2ETestBase {
 
 		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
 			.then().statusCode(201);
+	}
+
+	@Test
+	@DisplayName("US-02 AC-4: a second pending request for the same application gets 409")
+	void secondPendingRequestIsConflict() {
+		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(201);
+
+		submit("rm-carl", "MA-1001", newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(409)
+			.contentType("application/problem+json")
+			.body("status", equalTo(409))
+			.body("detail", equalTo("Application MA-1001 already has a pending request"))
+			.body("trace", nullValue())
+			.body("exception", nullValue());
+		submit("rm-carl", "MA-1002", newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(201);
+	}
+
+	@Test
+	@DisplayName("US-02 AC-4: five racing submits leave exactly one pending request")
+	void racingSubmitsLeaveExactlyOnePending() throws Exception {
+		ExecutorService pool = Executors.newFixedThreadPool(5);
+		try {
+			CountDownLatch start = new CountDownLatch(1);
+			List<Future<Integer>> calls = IntStream.range(0, 5)
+				.mapToObj(i -> pool.submit(() -> {
+					start.await();
+					return submit("rm-anna", "MA-1001", "race-" + i, VALID_BODY).statusCode();
+				}))
+				.toList();
+			start.countDown();
+
+			List<Integer> statuses = new ArrayList<>();
+			for (Future<Integer> call : calls) {
+				statuses.add(call.get());
+			}
+			assertThat(statuses).containsExactlyInAnyOrder(201, 409, 409, 409, 409);
+		}
+		finally {
+			pool.shutdown();
+		}
 	}
 
 	private static String body(int discountBps, String reason) {
