@@ -3,10 +3,13 @@ package com.blueharvest.pricingexception.e2e;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 
 import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -15,9 +18,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 class RetrySafelyE2ETest extends E2ETestBase {
@@ -111,6 +118,78 @@ class RetrySafelyE2ETest extends E2ETestBase {
 		finally {
 			pool.shutdown();
 		}
+	}
+
+	@ParameterizedTest(name = "US-03 AC-3: a {0} Idempotency-Key gets 400")
+	@MethodSource("unusableKeys")
+	@DisplayName("US-03 AC-3: a submit without a usable Idempotency-Key gets 400")
+	void postWithoutUsableKeyIsBadRequest(String label, String key) {
+		RequestSpecification request = given()
+			.header("X-User-Id", "rm-anna")
+			.contentType("application/json; charset=UTF-8")
+			.body(VALID_BODY);
+		if (key != null) {
+			request.header("Idempotency-Key", key);
+		}
+		request.when().post("/applications/{applicationId}/pricing-exceptions", "MA-1001")
+			.then().statusCode(400)
+			.contentType("application/problem+json");
+	}
+
+	@Test
+	@DisplayName("US-03 AC-3: a 255-character Idempotency-Key is accepted")
+	void keyAtMaximumLengthIsAccepted() {
+		submit("rm-anna", "MA-1001", "k".repeat(255), VALID_BODY).then().statusCode(201);
+	}
+
+	@Test
+	@DisplayName("US-03 AC-3: keys are used verbatim, so a key that differs only by case is a different key")
+	void keysAreUsedVerbatim() {
+		submit("rm-anna", "MA-1001", "Key-A", VALID_BODY).then().statusCode(201);
+
+		submit("rm-anna", "MA-1001", "key-a", body(30, VALID_REASON))
+			.then().statusCode(409)
+			.contentType("application/problem+json");
+	}
+
+	@Test
+	@DisplayName("US-03 AC-5: the same key from another user or on another route is independent")
+	void keyIsScopedToUserAndRoute() {
+		String key = newIdempotencyKey();
+		Response anna = submit("rm-anna", "MA-1001", key, VALID_BODY);
+		anna.then().statusCode(201);
+		String annasId = anna.path("id");
+
+		Response carl = submit("rm-carl", "MA-1001", key, VALID_BODY);
+		carl.then().statusCode(409).contentType("application/problem+json");
+		assertThat(carl.asString()).doesNotContain(annasId);
+
+		submit("rm-anna", "MA-1002", key, VALID_BODY)
+			.then().statusCode(201)
+			.header("Location", not(equalTo(anna.header("Location"))));
+	}
+
+	@Test
+	@DisplayName("US-03 AC-5: a key can be reused once the 24h TTL has passed")
+	void keyExpiresAfterTtl() {
+		String key = newIdempotencyKey();
+		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+
+		CLOCK.advance(Duration.ofHours(24).minusSeconds(1));
+		submit("rm-anna", "MA-1001", key, body(30, VALID_REASON)).then().statusCode(422);
+
+		CLOCK.advance(Duration.ofSeconds(1));
+		submit("rm-anna", "MA-1001", key, VALID_BODY)
+			.then().statusCode(409)
+			.contentType("application/problem+json");
+	}
+
+	static Stream<Arguments> unusableKeys() {
+		return Stream.of(
+				Arguments.of("missing", null),
+				Arguments.of("empty", ""),
+				Arguments.of("blank", "   "),
+				Arguments.of("256-character", "k".repeat(256)));
 	}
 
 	private static void holdUncommittedClaim(Connection connection, String key) throws Exception {
