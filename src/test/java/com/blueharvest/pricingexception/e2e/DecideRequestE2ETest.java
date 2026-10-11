@@ -2,9 +2,13 @@ package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 import io.restassured.response.Response;
@@ -296,10 +300,65 @@ class DecideRequestE2ETest extends E2ETestBase {
 			.contentType(PROBLEM_JSON);
 	}
 
+	@Test
+	@DisplayName("US-04 AC-2: a pending request shows an advice snapshot that flags a discount above 50 bps and a short reason")
+	void pendingRequestShowsAdviceSnapshot() {
+		submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		submitted("rm-anna", "MA-1002", 75, VALID_REASON);
+		submitted("rm-anna", "MA-1003", 25, "Client asked");
+
+		list("reviewer-ben", "PENDING")
+			.statusCode(200)
+			.body(adviceOf("MA-1001") + ".recommendation", equalTo("APPROVE"))
+			.body(adviceOf("MA-1001") + ".rationale", not(emptyOrNullString()))
+			.body(adviceOf("MA-1002") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
+			.body(adviceOf("MA-1002") + ".rationale", containsString("50"))
+			.body(adviceOf("MA-1003") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
+			.body(adviceOf("MA-1003") + ".rationale", containsString("30"));
+	}
+
+	@Test
+	@DisplayName("US-04 AC-2: a discount of exactly 50 bps and a reason of exactly 30 characters are not flagged")
+	void adviceThresholdsAreExclusive() {
+		submitted("rm-anna", "MA-1001", 50, "x".repeat(30));
+		submitted("rm-anna", "MA-1002", 51, "x".repeat(30));
+		submitted("rm-anna", "MA-1003", 50, "x".repeat(29));
+		submitted("rm-anna", "MA-1004", 75, "Client asked");
+
+		list("reviewer-ben", "PENDING")
+			.statusCode(200)
+			.body(adviceOf("MA-1001") + ".recommendation", equalTo("APPROVE"))
+			.body(adviceOf("MA-1002") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
+			.body(adviceOf("MA-1003") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
+			.body(adviceOf("MA-1004") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
+			.body(adviceOf("MA-1004") + ".rationale", allOf(containsString("50"), containsString("30")));
+	}
+
+	@Test
+	@DisplayName("US-04 AC-2: advice is non-binding, a flagged request can still be approved")
+	void flaggedRequestCanStillBeApproved() {
+		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
+		read(id).body("currentRevision.advice.recommendation", equalTo("REVIEW_CAREFULLY"));
+
+		approve("reviewer-ben", id).then().statusCode(200).body("status", equalTo("APPROVED"));
+
+		read(id)
+			.body("status", equalTo("APPROVED"))
+			.body("currentRevision.advice.recommendation", equalTo("REVIEW_CAREFULLY"));
+	}
+
 	private static String submitted(String userId, String applicationId, int discountBps) {
-		return submit(userId, applicationId, newIdempotencyKey(), body(discountBps, VALID_REASON))
+		return submitted(userId, applicationId, discountBps, VALID_REASON);
+	}
+
+	private static String submitted(String userId, String applicationId, int discountBps, String reason) {
+		return submit(userId, applicationId, newIdempotencyKey(), body(discountBps, reason))
 			.then().statusCode(201)
 			.extract().path("id");
+	}
+
+	private static String adviceOf(String applicationId) {
+		return "find { it.applicationId == '" + applicationId + "' }.currentRevision.advice";
 	}
 
 	private static Response approve(String userId, String id) {
