@@ -45,7 +45,7 @@ make test         # runs every check inside a container, no local JDK needed
 Both commands run three things, and any failure fails the build:
 
 1. **Complexity gate (PMD):** a method with cyclomatic or cognitive complexity above 8 fails the build.
-2. **Architecture test (ArchUnit):** checks the layering (controllers call services, and only services use the Spring Data repositories) and bans reading the system time directly: any `java.time` `now()` without a clock argument (method references such as `Instant::now` included), `System.currentTimeMillis()`, and system `Clock` factories outside the clock config. Time always comes from the injected clock.
+2. **Architecture test (ArchUnit):** checks the layering (controllers call services, and only services use the Spring Data repositories) and bans reading the system time directly: any `java.time` `now()` without a clock argument (method references such as `Instant::now` included); `System.currentTimeMillis()` and `System.nanoTime()`; system `Clock` or `InstantSource` factories outside the clock config; the legacy `java.util.Date` and `java.util.Calendar` types; and Hibernate's `@CreationTimestamp`, `@UpdateTimestamp` and `@CurrentTimestamp`. Time always comes from the injected clock.
 3. **End-to-end suite:** starts the full service on a random port and calls it over HTTP.
 
 The tests are end-to-end only, and their names follow the story acceptance criteria (for example `US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me`), so the test report reads as a checklist of user stories.

@@ -13,6 +13,7 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import java.time.Clock;
+import java.time.InstantSource;
 import java.util.List;
 import java.util.Set;
 
@@ -35,6 +36,15 @@ class ArchitectureTest {
 		.that().resideOutsideOfPackage("..config..")
 		.should().accessTargetWhere(describe("a system Clock factory", ArchitectureTest::createsSystemClock))
 		.because("the single system Clock bean is defined in the config package");
+
+	@ArchTest
+	static final ArchRule noLegacyOrDatabaseTimestamps = noClasses()
+		.should().dependOnClassesThat().haveFullyQualifiedName("java.util.Date")
+		.orShould().dependOnClassesThat().haveFullyQualifiedName("java.util.Calendar")
+		.orShould().dependOnClassesThat().haveFullyQualifiedName("org.hibernate.annotations.CreationTimestamp")
+		.orShould().dependOnClassesThat().haveFullyQualifiedName("org.hibernate.annotations.UpdateTimestamp")
+		.orShould().dependOnClassesThat().haveFullyQualifiedName("org.hibernate.annotations.CurrentTimestamp")
+		.because("time must come from the injected Clock so tests can control it");
 
 	@ArchTest
 	static final ArchRule controllerServiceRepositoryLayers = layeredArchitecture()
@@ -72,7 +82,8 @@ class ArchitectureTest {
 
 	private static boolean createsSystemClock(JavaAccess<?> access) {
 		AccessTarget target = access.getTarget();
-		return target.getOwner().isEquivalentTo(Clock.class) && SYSTEM_CLOCK_FACTORIES.contains(target.getName());
+		return target.getOwner().isAssignableTo(InstantSource.class)
+				&& SYSTEM_CLOCK_FACTORIES.contains(target.getName());
 	}
 
 }
