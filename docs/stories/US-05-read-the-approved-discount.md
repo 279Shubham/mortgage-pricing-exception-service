@@ -15,7 +15,7 @@ End-to-end tests: `ApprovedDiscountE2ETest`. Every test name starts with the cri
 
 | Criterion | Proved by |
 |-----------|-----------|
-| AC-1 | `the application process reads the latest approval for an application`<br>`any internal user reads the same approval` |
+| AC-1 | `the application process reads the latest approval for an application`<br>`any internal user reads the same approval`<br>`the discount comes from the approved revision, not from a later revision` |
 | AC-2 | `an application without an approval gets an empty list` |
 | AC-3 | `a new request after an approval leaves it effective until the new one is approved` |
 | AC-4 | `a resubmit after a decline is a new request linked by previousRequestId` |
@@ -31,11 +31,33 @@ Product assumptions, in plain words: the lookup does not check that the applicat
 
 ## Review notes
 
-Not reviewed yet.
+The story's code was reviewed once, together with US-04, at commit `7d23ed6`. The review found no critical issues, and confirmed that the lookup reads the discount through the decided revision. Each fix below is its own commit. After the fixes the build is green with 112 tests, 6 of them for this story (commit `299aeab`).
+
+| Finding | Resolution | Commit |
+|---------|------------|--------|
+| A resubmit that overlapped the decline lost its `previousRequestId` link: the declined predecessor was looked up before the new request was inserted, so a decline that committed in between was missed, and nothing sets the link later | The request is inserted first and the predecessor is looked up afterwards, leaving the new request itself out. An insert that succeeds means the decline is committed, so the lookup sees it | `6598b21` |
+| Every request had exactly one revision, so the suite stayed green if the lookup read the current revision instead of the approved one | A test approves revision 1 at 25 bps, adds a revision 2 at 60 bps in the database and checks that the lookup still returns revision 1 and 25 bps. With the lookup switched to the current revision for a moment, this test failed and the other 111 passed. The code was already right, so no production code changed | `1bd22a7` |
+
+The lost link has no automated test. The gap is between two statements of one submit, which a test can only hit by timing, so no flaky test was added. It was checked on a running service instead, by firing a decline and a submit together on `MA-1006`:
+
+| Build | Pairs | Submit got 409 | Submit got 201, linked | Submit got 201, link lost |
+|-------|-------|----------------|------------------------|---------------------------|
+| `7d23ed6` (before) | 300 | 292 | 0 | 8 |
+| `6598b21` (after) | 300 | 295 | 5 | 0 |
+| `6598b21` (after) | 1500 | 1448 | 52 | 0 |
+| `299aeab` (final) | 600 | 589 | 11 | 0 |
+
+Every decline returned 200. That the lookup after the insert sees the committed decline is argued for PostgreSQL (READ COMMITTED) and was only run on H2.
+
+**Left open, by decision.**
+
+- "Latest" depends only on the decision time, which comes from the wall clock. Two approvals in the same millisecond have no tie-break, and a clock stepped backwards between two approvals would make the lookup return the older one. The id of the `APPROVED` history event would be a monotonic second key.
+- The application id in the lookup path has no length limit. A 3000-character id gets `200 []`; it only reaches a bound query parameter and is never echoed.
+- The revision number is `revision` here, `currentRevision.number` in a request and `decision.revisionNumber` in a decision; the decider is `approvedBy` here and `decidedBy` there. The names were left as they are.
 
 ## Verification evidence
 
-All evidence below is real captured output from 2026-10-11, taken at commit `d191128`.
+All evidence below is real captured output from 2026-10-11. Parts (a) to (d) were taken at commit `d191128` and are kept as they were captured, so their counts (5 tests for this story, 106 in all, 8 migrations) are those of that commit. Part (e) was taken at commit `299aeab`, after the review fixes.
 
 ### (a) The story's end-to-end tests
 
@@ -131,3 +153,18 @@ ApprovedDiscountE2ETest > US-05 AC-2: an application without an approval gets an
 ApprovedDiscountE2ETest > US-05 AC-1: the application process reads the latest approval for an application PASSED
 ApprovedDiscountE2ETest > US-05 AC-3: a new request after an approval leaves it effective until the new one is approved PASSED
 ```
+
+### (e) After the review fixes (commit `299aeab`)
+
+`./gradlew test --tests '*ApprovedDiscountE2ETest' --rerun --console=plain` with JDK 21. All 6 US-05 tests passed, the 5 above and the one added by the review fixes:
+
+```
+ApprovedDiscountE2ETest > US-05 AC-1: the discount comes from the approved revision, not from a later revision PASSED
+ApprovedDiscountE2ETest > US-05 AC-4: a resubmit after a decline is a new request linked by previousRequestId PASSED
+ApprovedDiscountE2ETest > US-05 AC-1: any internal user reads the same approval PASSED
+ApprovedDiscountE2ETest > US-05 AC-2: an application without an approval gets an empty list PASSED
+ApprovedDiscountE2ETest > US-05 AC-1: the application process reads the latest approval for an application PASSED
+ApprovedDiscountE2ETest > US-05 AC-3: a new request after an approval leaves it effective until the new one is approved PASSED
+```
+
+`./gradlew check --rerun-tasks --console=plain` with JDK 21 then ran the whole build from scratch: 112 tests, none failed or was skipped, `BUILD SUCCESSFUL in 12s`. The counts per class are in the US-04 trail, part (f). The test log shows `Successfully applied 9 migrations to schema "public", now at version v9`. `make test` in a container was not run again after the review fixes.
