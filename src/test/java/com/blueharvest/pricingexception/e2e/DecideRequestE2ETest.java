@@ -2,13 +2,18 @@ package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
+import io.restassured.response.Response;
+import io.restassured.response.ValidatableResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +25,12 @@ class DecideRequestE2ETest extends E2ETestBase {
 	private static final String VALID_REASON = "Retention offer matching a competitor quote";
 
 	private static final String REVISION_ONE = "{\"revisionNumber\":1}";
+
+	private static final String DECLINE_NOTE = "Discount not justified by the quote";
+
+	private static final String DECLINE_BODY = "{\"revisionNumber\":1,\"note\":\"" + DECLINE_NOTE + "\"}";
+
+	private static final String PROBLEM_JSON = "application/problem+json";
 
 	@Autowired
 	DataSource dataSource;
@@ -39,10 +50,7 @@ class DecideRequestE2ETest extends E2ETestBase {
 			.body("decision.decidedAt", equalTo("2026-01-15T10:00:00Z"))
 			.body("decision.revisionNumber", equalTo(1));
 
-		given()
-			.header("X-User-Id", "rm-anna")
-			.when().get("/pricing-exceptions/{id}", id)
-			.then().statusCode(200)
+		read(id)
 			.body("status", equalTo("APPROVED"))
 			.body("decision.decidedBy", equalTo("reviewer-ben"))
 			.body("decision.decidedAt", equalTo("2026-01-15T10:00:00Z"))
@@ -57,10 +65,275 @@ class DecideRequestE2ETest extends E2ETestBase {
 			.isEqualTo(MutableClock.START.plus(Duration.ofHours(1)));
 	}
 
+	@Test
+	@DisplayName("US-04 AC-3: an approve that does not state the revision gets 400")
+	void approveWithoutRevisionIsBadRequest() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{}")
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":\"1\"}")
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+
+		assertStillPendingAndUndecided(id);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-3: a revision number that is not the current revision gets 409")
+	void staleRevisionNumberIsConflict() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
+			.then().statusCode(409)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Revision 2 is not the current revision 1"));
+		decide("reviewer-ben", id, "decline", newIdempotencyKey(),
+				"{\"revisionNumber\":0,\"note\":\"" + DECLINE_NOTE + "\"}")
+			.then().statusCode(409)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Revision 0 is not the current revision 1"));
+
+		assertStillPendingAndUndecided(id);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-3: deciding an unknown request gets 404")
+	void unknownRequestIsNotFound() {
+		UUID unknown = UUID.randomUUID();
+
+		approve("reviewer-ben", unknown.toString())
+			.then().statusCode(404)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Unknown pricing exception request " + unknown));
+		decline("reviewer-ben", unknown.toString())
+			.then().statusCode(404)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Unknown pricing exception request " + unknown));
+	}
+
+	@Test
+	@DisplayName("US-04 AC-4: a reviewer declines a pending request with a note")
+	void reviewerDeclinesPendingRequestWithNote() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+		CLOCK.advance(Duration.ofMinutes(30));
+
+		decline("reviewer-dana", id)
+			.then().statusCode(200)
+			.header("Location", nullValue())
+			.body("status", equalTo("DECLINED"))
+			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.decidedAt", equalTo("2026-01-15T09:30:00Z"))
+			.body("decision.revisionNumber", equalTo(1))
+			.body("decision.note", equalTo(DECLINE_NOTE));
+
+		read(id)
+			.body("status", equalTo("DECLINED"))
+			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.decidedAt", equalTo("2026-01-15T09:30:00Z"))
+			.body("decision.note", equalTo(DECLINE_NOTE));
+
+		List<Map<String, Object>> declines = historyEvents("DECLINED");
+		assertThat(declines).hasSize(1);
+		assertThat(declines.get(0).get("request_id")).hasToString(id);
+		assertThat(declines.get(0)).containsEntry("revision_number", 1).containsEntry("actor_id", "reviewer-dana");
+	}
+
+	@Test
+	@DisplayName("US-04 AC-4: a decline without a note gets 400")
+	void declineWithoutNoteIsBadRequest() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+
+		decide("reviewer-dana", id, "decline", newIdempotencyKey(), REVISION_ONE)
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON)
+			.body("status", equalTo(400));
+		decide("reviewer-dana", id, "decline", newIdempotencyKey(), "{\"revisionNumber\":1,\"note\":\"   \"}")
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+		decide("reviewer-dana", id, "decline", newIdempotencyKey(),
+				"{\"revisionNumber\":1,\"note\":\"" + "x".repeat(1001) + "\"}")
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+
+		assertStillPendingAndUndecided(id);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-5: the dual-role user cannot decide their own request")
+	void dualRoleUserCannotDecideOwnRequest() {
+		String id = submitted("dual-erin", "MA-1001", 25);
+
+		approve("dual-erin", id)
+			.then().statusCode(403)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("A reviewer may not decide their own request"));
+		decline("dual-erin", id)
+			.then().statusCode(403)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("A reviewer may not decide their own request"));
+		assertStillPendingAndUndecided(id);
+
+		approve("reviewer-ben", id).then().statusCode(200).body("decision.decidedBy", equalTo("reviewer-ben"));
+	}
+
+	@Test
+	@DisplayName("US-04 AC-5: an RM-only user cannot decide at all")
+	void rmOnlyUserCannotDecide() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+
+		approve("rm-carl", id)
+			.then().statusCode(403)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Only a reviewer may decide a pricing exception"));
+		decline("rm-carl", id)
+			.then().statusCode(403)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Only a reviewer may decide a pricing exception"));
+		approve("rm-anna", id).then().statusCode(403);
+		approve("rm-carl", UUID.randomUUID().toString()).then().statusCode(403);
+
+		assertStillPendingAndUndecided(id);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-5: deciding an already approved or declined request gets 409")
+	void decidedRequestCannotBeDecidedAgain() {
+		String approved = submitted("rm-anna", "MA-1001", 25);
+		approve("reviewer-ben", approved).then().statusCode(200);
+		String declined = submitted("rm-carl", "MA-1002", 25);
+		decline("reviewer-dana", declined).then().statusCode(200);
+
+		decline("reviewer-dana", approved)
+			.then().statusCode(409)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Request " + approved + " is already APPROVED"));
+		approve("reviewer-dana", approved).then().statusCode(409);
+		approve("reviewer-ben", declined)
+			.then().statusCode(409)
+			.contentType(PROBLEM_JSON)
+			.body("detail", equalTo("Request " + declined + " is already DECLINED"));
+
+		read(approved)
+			.body("status", equalTo("APPROVED"))
+			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.note", nullValue());
+		read(declined)
+			.body("status", equalTo("DECLINED"))
+			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.note", equalTo(DECLINE_NOTE));
+		assertThat(eventTypes()).containsExactly("SUBMITTED", "APPROVED", "SUBMITTED", "DECLINED");
+	}
+
+	@Test
+	@DisplayName("US-04 AC-6: a retried approve replays the original response and records one decision")
+	void retriedApproveReplaysOriginalResponse() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+		String key = newIdempotencyKey();
+		Response original = decide("reviewer-ben", id, "approve", key, REVISION_ONE);
+		original.then().statusCode(200);
+
+		CLOCK.advance(Duration.ofMinutes(5));
+		Response retry = decide("reviewer-ben", id, "approve", key, "{ \"revisionNumber\" : 1 }");
+
+		retry.then().statusCode(200).header("Location", nullValue());
+		assertThat(retry.asString()).isEqualTo(original.asString());
+		assertThat(eventTypes()).containsExactly("SUBMITTED", "APPROVED");
+		decide("reviewer-ben", id, "approve", key, "{\"revisionNumber\":2}").then().statusCode(422);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-6: a retried decline replays the original response and records one decision")
+	void retriedDeclineReplaysOriginalResponse() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+		String key = newIdempotencyKey();
+		Response original = decide("reviewer-dana", id, "decline", key, DECLINE_BODY);
+		original.then().statusCode(200);
+
+		CLOCK.advance(Duration.ofMinutes(5));
+		Response retry = decide("reviewer-dana", id, "decline", key, DECLINE_BODY);
+
+		retry.then().statusCode(200);
+		assertThat(retry.asString()).isEqualTo(original.asString());
+		assertThat(eventTypes()).containsExactly("SUBMITTED", "DECLINED");
+		decide("reviewer-dana", id, "decline", key, "{\"revisionNumber\":1,\"note\":\"Another note\"}")
+			.then().statusCode(422);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-1: a reviewer lists requests filtered by status")
+	void reviewerListsRequestsByStatus() {
+		String oldest = submitted("rm-anna", "MA-1001", 25);
+		CLOCK.advance(Duration.ofMinutes(1));
+		String newer = submitted("rm-carl", "MA-1002", 40);
+		CLOCK.advance(Duration.ofMinutes(1));
+		String approved = submitted("rm-anna", "MA-1003", 30);
+		approve("reviewer-ben", approved).then().statusCode(200);
+
+		list("reviewer-ben", "PENDING")
+			.statusCode(200)
+			.body("id", contains(oldest, newer))
+			.body("applicationId", contains("MA-1001", "MA-1002"))
+			.body("status", contains("PENDING", "PENDING"))
+			.body("currentRevision.number", contains(1, 1))
+			.body("currentRevision.discountBps", contains(25, 40));
+		list("reviewer-ben", "APPROVED")
+			.statusCode(200)
+			.body("id", contains(approved))
+			.body("decision.decidedBy", contains("reviewer-ben"));
+		list("reviewer-ben", "DECLINED").statusCode(200).body("$", empty());
+	}
+
+	@Test
+	@DisplayName("US-04 AC-1: a missing or unknown status filter gets 400")
+	void listNeedsKnownStatus() {
+		list("reviewer-ben", "NOPE").statusCode(400).contentType(PROBLEM_JSON);
+		given()
+			.header("X-User-Id", "reviewer-ben")
+			.when().get("/pricing-exceptions")
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+	}
+
 	private static String submitted(String userId, String applicationId, int discountBps) {
 		return submit(userId, applicationId, newIdempotencyKey(), body(discountBps, VALID_REASON))
 			.then().statusCode(201)
 			.extract().path("id");
+	}
+
+	private static Response approve(String userId, String id) {
+		return decide(userId, id, "approve", newIdempotencyKey(), REVISION_ONE);
+	}
+
+	private static Response decline(String userId, String id) {
+		return decide(userId, id, "decline", newIdempotencyKey(), DECLINE_BODY);
+	}
+
+	private static ValidatableResponse read(String id) {
+		return given()
+			.header("X-User-Id", "rm-anna")
+			.when().get("/pricing-exceptions/{id}", id)
+			.then().statusCode(200);
+	}
+
+	private static ValidatableResponse list(String userId, String status) {
+		return given()
+			.header("X-User-Id", userId)
+			.queryParam("status", status)
+			.when().get("/pricing-exceptions")
+			.then();
+	}
+
+	private void assertStillPendingAndUndecided(String id) {
+		read(id).body("status", equalTo("PENDING")).body("decision", nullValue());
+		assertThat(eventTypes()).containsExactly("SUBMITTED");
+	}
+
+	private List<String> eventTypes() {
+		return JdbcClient.create(dataSource)
+			.sql("SELECT event_type FROM request_event ORDER BY id")
+			.query(String.class).list();
 	}
 
 	private List<Map<String, Object>> historyEvents(String eventType) {
