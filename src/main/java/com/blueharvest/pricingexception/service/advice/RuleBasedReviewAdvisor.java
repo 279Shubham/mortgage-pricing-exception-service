@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.service;
+package com.blueharvest.pricingexception.service.advice;
 
 import com.blueharvest.pricingexception.model.Advice;
 import com.blueharvest.pricingexception.model.AdviceRecommendation;
@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-class RuleBasedReviewAdvisor implements ReviewAdvisor {
+public class RuleBasedReviewAdvisor implements ReviewAdvisor {
 
 	private final int highDiscountBps;
 

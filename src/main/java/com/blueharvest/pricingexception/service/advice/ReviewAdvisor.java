@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.service;
+package com.blueharvest.pricingexception.service.advice;
 
 import com.blueharvest.pricingexception.model.Advice;
 

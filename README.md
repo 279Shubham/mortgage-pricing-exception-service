@@ -197,7 +197,11 @@ Plain layered Spring MVC: **controller → service → repository**, on Java 21,
 ```
 controller/   HTTP endpoints, no logic
 service/      the rules: PricingExceptionService, DecisionService, RequestHistoryService,
-              IdempotencyService, RuleBasedReviewAdvisor, RequestEventPublisher
+              RequestEventPublisher
+  command/      what a caller asks for: submit, revise, withdraw, decide
+  idempotency/  retry safety for every POST
+  advice/       ReviewAdvisor and its rule-based implementation
+  exception/    the errors the rules raise
 repository/   Spring Data interfaces
 model/ dto/   entities and response shapes
 web/          caller check and error mapping

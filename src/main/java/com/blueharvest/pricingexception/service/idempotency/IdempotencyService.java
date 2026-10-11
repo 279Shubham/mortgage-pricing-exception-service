@@ -1,7 +1,8 @@
-package com.blueharvest.pricingexception.service;
+package com.blueharvest.pricingexception.service.idempotency;
 
 import com.blueharvest.pricingexception.model.IdempotencyRecord;
 import com.blueharvest.pricingexception.repository.IdempotencyRecordRepository;
+import com.blueharvest.pricingexception.service.UniqueConstraint;
 import com.blueharvest.pricingexception.service.exception.ConflictException;
 import com.blueharvest.pricingexception.service.exception.IdempotencyKeyReusedException;
 import java.security.MessageDigest;

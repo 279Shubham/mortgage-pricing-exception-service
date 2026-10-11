@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.service;
+package com.blueharvest.pricingexception.service.command;
 
 import java.util.UUID;
 
