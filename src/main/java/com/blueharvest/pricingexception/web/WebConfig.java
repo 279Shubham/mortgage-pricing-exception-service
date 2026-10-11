@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 class WebConfig implements WebMvcConfigurer {
 
-	private static final List<String> OPEN_PATHS = List.of("/users", "/actuator/health/**", "/error");
+	private static final List<String> OPEN_PATHS = List.of("/users", "/error");
 
 	private final UserService users;
 

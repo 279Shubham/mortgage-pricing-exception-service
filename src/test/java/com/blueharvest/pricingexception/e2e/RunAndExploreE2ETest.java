@@ -45,6 +45,23 @@ class RunAndExploreE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-01 AC-3: the actuator discovery page is closed and health is the only actuator endpoint")
+	void actuatorDiscoveryIsClosed() {
+		given()
+			.when().get("/actuator")
+			.then().statusCode(404)
+			.contentType("application/problem+json");
+		given()
+			.when().get("/actuator/info")
+			.then().statusCode(404)
+			.contentType("application/problem+json");
+		given()
+			.when().get("/actuator/health")
+			.then().statusCode(200)
+			.body("status", equalTo("UP"));
+	}
+
+	@Test
 	@DisplayName("US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me")
 	void seededCallerResolvesOnMe() {
 		given()

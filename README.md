@@ -52,7 +52,7 @@ The tests are end-to-end only, and their names follow the story acceptance crite
 
 ## Explore the API
 
-**Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id: one interceptor checks the caller before any controller runs, so a new endpoint is protected by default. A missing or unknown id gets `401` with an `application/problem+json` body:
+**Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id: one interceptor checks the caller before any controller runs, so a new endpoint is protected by default. Actuator endpoints are served outside that caller check, so only `/actuator/health` is exposed and the actuator discovery page (`/actuator`) is switched off. A missing or unknown id gets `401` with an `application/problem+json` body:
 
 ```json
 {"detail":"Missing or unknown X-User-Id","instance":"/me","status":401,"title":"Unauthorized"}
