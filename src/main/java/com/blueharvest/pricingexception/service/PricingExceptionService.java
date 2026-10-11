@@ -7,6 +7,7 @@ import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
 import com.blueharvest.pricingexception.model.RequestEventType;
 import com.blueharvest.pricingexception.model.RequestRevision;
+import com.blueharvest.pricingexception.model.Role;
 import com.blueharvest.pricingexception.repository.MortgageApplicationRepository;
 import com.blueharvest.pricingexception.repository.PricingExceptionRequestRepository;
 import com.blueharvest.pricingexception.repository.RequestEventRepository;
@@ -14,6 +15,7 @@ import com.blueharvest.pricingexception.repository.RequestRevisionRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,19 +32,28 @@ public class PricingExceptionService {
 
 	private final Clock clock;
 
+	private final int minBps;
+
+	private final int maxBps;
+
 	public PricingExceptionService(MortgageApplicationRepository applications,
 			PricingExceptionRequestRepository requests, RequestRevisionRepository revisions,
-			RequestEventRepository events, Clock clock) {
+			RequestEventRepository events, Clock clock, @Value("${pricing.discount.min-bps}") int minBps,
+			@Value("${pricing.discount.max-bps}") int maxBps) {
 		this.applications = applications;
 		this.requests = requests;
 		this.revisions = revisions;
 		this.events = events;
 		this.clock = clock;
+		this.minBps = minBps;
+		this.maxBps = maxBps;
 	}
 
 	@Transactional
 	public PricingExceptionResponse submit(Actor caller, SubmitCommand command) {
+		requireRole(caller, Role.RM);
 		MortgageApplication application = findApplication(command.applicationId());
+		requireValidDiscount(command.discountBps(), application);
 		Instant now = clock.instant();
 		PricingExceptionRequest request = insertPending(
 				new PricingExceptionRequest(application.getId(), caller.id(), now));
@@ -64,6 +75,20 @@ public class PricingExceptionService {
 	private MortgageApplication findApplication(String applicationId) {
 		return applications.findById(applicationId)
 			.orElseThrow(() -> new NotFoundException("Unknown mortgage application " + applicationId));
+	}
+
+	private void requireRole(Actor caller, Role role) {
+		if (!caller.roles().contains(role)) {
+			throw new ForbiddenException("Only a relationship manager may submit a pricing exception");
+		}
+	}
+
+	private void requireValidDiscount(int discountBps, MortgageApplication application) {
+		int standardRateBps = application.getStandardRateBps();
+		if (discountBps < minBps || discountBps > maxBps || discountBps >= standardRateBps) {
+			throw new InvalidRequestException("discountBps must be between " + minBps + " and " + maxBps
+					+ " and below the standard rate of " + standardRateBps + " bps");
+		}
 	}
 
 	private PricingExceptionRequest insertPending(PricingExceptionRequest request) {

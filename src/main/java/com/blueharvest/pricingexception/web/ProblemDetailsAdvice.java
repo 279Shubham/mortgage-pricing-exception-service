@@ -1,5 +1,7 @@
 package com.blueharvest.pricingexception.web;
 
+import com.blueharvest.pricingexception.service.ForbiddenException;
+import com.blueharvest.pricingexception.service.InvalidRequestException;
 import com.blueharvest.pricingexception.service.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -13,6 +15,16 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 	@ExceptionHandler
 	ProblemDetail notFound(NotFoundException e) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+	}
+
+	@ExceptionHandler
+	ProblemDetail forbidden(ForbiddenException e) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+	}
+
+	@ExceptionHandler
+	ProblemDetail invalid(InvalidRequestException e) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
 	}
 
 }
