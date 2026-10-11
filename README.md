@@ -183,6 +183,11 @@ Left out, on purpose:
 - **A message broker and an outbox.** Events are logged after commit, which shows where publishing belongs.
 - **A clean answer for the loser of a race.** Only one of two simultaneous changes is stored, but the loser gets a `500`. Accepted to keep the service small.
 - **Unit tests.** The end-to-end suite is the evidence of behaviour.
+- **UI tests.** One test checks that the page is served and loads nothing from outside. Nothing clicks through it automatically; it was walked through by hand.
+- **Application logging.** The only log line the service writes itself is one per stored event. Everything else is the framework's default output: no request log, no correlation id, no structured format.
+- **Telemetry.** No metrics, no tracing and no dashboards. The health endpoint is the only operational signal.
+- **Any AI feature in the running service.** The advisor is plain rules. See [Where AI fits in a system like this](#where-ai-fits-in-a-system-like-this) for where a model would belong.
+- **Contract-first API.** The API is code-first: the controllers and the hand-written DTO records are the source, and the Swagger page is generated from them. The better approach, and the next thing to change, is the reverse: one OpenAPI file as the contract, with the request and response classes and the controller interfaces generated from it at build time. The hand-written DTOs then disappear, the documentation cannot drift from the code, and consumers such as the mortgage application process can generate their client from the same file.
 - **A polished UI.**
 
 ## Architecture and decisions
