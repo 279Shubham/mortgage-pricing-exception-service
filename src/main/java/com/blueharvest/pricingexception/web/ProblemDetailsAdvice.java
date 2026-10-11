@@ -2,6 +2,7 @@ package com.blueharvest.pricingexception.web;
 
 import com.blueharvest.pricingexception.service.ConflictException;
 import com.blueharvest.pricingexception.service.ForbiddenException;
+import com.blueharvest.pricingexception.service.IdempotencyKeyReusedException;
 import com.blueharvest.pricingexception.service.InvalidRequestException;
 import com.blueharvest.pricingexception.service.NotFoundException;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,11 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 	@ExceptionHandler
 	ProblemDetail conflict(ConflictException e) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+	}
+
+	@ExceptionHandler
+	ProblemDetail keyReused(IdempotencyKeyReusedException e) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
 	}
 
 }
