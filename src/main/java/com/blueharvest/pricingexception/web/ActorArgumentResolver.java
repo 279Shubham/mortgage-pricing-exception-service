@@ -1,7 +1,7 @@
-package com.blueharvest.pricingexception.request.adapter.in.web;
+package com.blueharvest.pricingexception.web;
 
-import com.blueharvest.pricingexception.request.application.port.out.UserDirectory;
-import com.blueharvest.pricingexception.request.domain.Actor;
+import com.blueharvest.pricingexception.model.Actor;
+import com.blueharvest.pricingexception.service.UserService;
 import java.util.Optional;
 import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -13,9 +13,9 @@ class ActorArgumentResolver implements HandlerMethodArgumentResolver {
 
 	public static final String USER_ID_HEADER = "X-User-Id";
 
-	private final UserDirectory users;
+	private final UserService users;
 
-	ActorArgumentResolver(UserDirectory users) {
+	ActorArgumentResolver(UserService users) {
 		this.users = users;
 	}
 

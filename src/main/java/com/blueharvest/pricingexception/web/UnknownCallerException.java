@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.request.adapter.in.web;
+package com.blueharvest.pricingexception.web;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponseException;

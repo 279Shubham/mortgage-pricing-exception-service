@@ -1,7 +1,5 @@
-package com.blueharvest.pricingexception.request.adapter.out.persistence;
+package com.blueharvest.pricingexception.model;
 
-import com.blueharvest.pricingexception.request.domain.Actor;
-import com.blueharvest.pricingexception.request.domain.Role;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -15,7 +13,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "app_user")
-class UserEntity {
+public class User {
 
 	@Id
 	private String id;
@@ -28,10 +26,10 @@ class UserEntity {
 	@Column(name = "role")
 	private Set<String> roles;
 
-	protected UserEntity() {
+	protected User() {
 	}
 
-	Actor toActor() {
+	public Actor toActor() {
 		Set<Role> actorRoles = roles.stream().map(Role::valueOf).collect(Collectors.toSet());
 		return new Actor(id, displayName, actorRoles);
 	}

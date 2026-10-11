@@ -1,6 +1,6 @@
-package com.blueharvest.pricingexception.request.adapter.in.web;
+package com.blueharvest.pricingexception.web;
 
-import com.blueharvest.pricingexception.request.application.port.out.UserDirectory;
+import com.blueharvest.pricingexception.service.UserService;
 import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -9,9 +9,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 class WebConfig implements WebMvcConfigurer {
 
-	private final UserDirectory users;
+	private final UserService users;
 
-	WebConfig(UserDirectory users) {
+	WebConfig(UserService users) {
 		this.users = users;
 	}
 

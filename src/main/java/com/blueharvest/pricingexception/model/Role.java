@@ -1,4 +1,4 @@
-package com.blueharvest.pricingexception.request.domain;
+package com.blueharvest.pricingexception.model;
 
 public enum Role {
 
