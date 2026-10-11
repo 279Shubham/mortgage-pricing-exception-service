@@ -1,6 +1,7 @@
 package com.blueharvest.pricingexception.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -29,5 +30,18 @@ class ArchitectureTest {
 		.orShould().callMethod(Clock.class, "systemDefaultZone")
 		.orShould().callMethod(Clock.class, "tickMillis", ZoneId.class)
 		.because("the single system Clock bean is defined in the config package");
+
+	@ArchTest
+	static final ArchRule controllerServiceRepositoryLayers = layeredArchitecture()
+		.consideringOnlyDependenciesInLayers()
+		.layer("Web").definedBy("..web..")
+		.layer("Controller").definedBy("..controller..")
+		.layer("Service").definedBy("..service..")
+		.layer("Repository").definedBy("..repository..")
+		.whereLayer("Web").mayNotBeAccessedByAnyLayer()
+		.whereLayer("Controller").mayNotBeAccessedByAnyLayer()
+		.whereLayer("Service").mayOnlyBeAccessedByLayers("Controller", "Web")
+		.whereLayer("Repository").mayOnlyBeAccessedByLayers("Service")
+		.because("controllers go through services, and only services use repositories");
 
 }
