@@ -5,6 +5,7 @@ import com.blueharvest.pricingexception.service.ForbiddenException;
 import com.blueharvest.pricingexception.service.IdempotencyKeyReusedException;
 import com.blueharvest.pricingexception.service.InvalidRequestException;
 import com.blueharvest.pricingexception.service.NotFoundException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -32,6 +33,11 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 	@ExceptionHandler
 	ProblemDetail conflict(ConflictException e) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+	}
+
+	@ExceptionHandler
+	ProblemDetail stillInProgress(PessimisticLockingFailureException e) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Another request is still in progress; retry later");
 	}
 
 	@ExceptionHandler
