@@ -105,25 +105,27 @@ curl -i localhost:8080/me
 ```bash
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
   -H 'X-User-Id: rm-anna' \
-  -H 'Idempotency-Key: readme-demo-1' \
+  -H 'Idempotency-Key: readme-demo-2' \
   -H 'Content-Type: application/json' \
-  -d '{"discountBps":25,"reason":"Retention offer matching a competitor quote"}'
+  -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
 # HTTP/1.1 201
-# Location: /pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
+# Location: /pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
 # Content-Type: application/json
 #
-# {"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna",
-#  "submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,
-#  "reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna",
+#  "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
+#  "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
+#  "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
+#  "createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}
 ```
 
-The id and the times differ on every run. Use the `Location` you get back in the next call.
+The id and the times differ on every run. Use the `Location` you get back in the next calls. `advice` is a non-binding recommendation stored with the revision; 75 bps is above the advisory threshold, so it says to review carefully. `decision` stays `null` until a reviewer decides. `previousRequestId` is only set on a resubmit after a decline.
 
 **Read it back.** Any known user can read a request, here a reviewer:
 
 ```bash
-curl -H 'X-User-Id: reviewer-ben' localhost:8080/pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
-# {"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna", ...}
+curl -H 'X-User-Id: reviewer-ben' localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna", ...}
 ```
 
 **Retry safely.** Sending the exact same submit again, with the same key, does not create a second request. It returns the stored answer: the same `201`, the same `Location` and the same body, byte for byte.
@@ -133,7 +135,7 @@ Reusing the key for a different body (here `"discountBps":30`) is refused with `
 ```bash
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
   -H 'X-User-Id: rm-anna' \
-  -H 'Idempotency-Key: readme-demo-1' \
+  -H 'Idempotency-Key: readme-demo-2' \
   -H 'Content-Type: application/json' \
   -d '{"discountBps":30,"reason":"Retention offer matching a competitor quote"}'
 # HTTP/1.1 422
@@ -148,11 +150,50 @@ Leaving the `Idempotency-Key` header out gets `400`:
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
   -H 'X-User-Id: rm-anna' \
   -H 'Content-Type: application/json' \
-  -d '{"discountBps":25,"reason":"Retention offer matching a competitor quote"}'
+  -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
 # HTTP/1.1 400
 # Content-Type: application/problem+json
 #
 # {"detail":"Required header 'Idempotency-Key' is not present.","instance":"/applications/MA-1001/pricing-exceptions","status":400,"title":"Bad Request"}
+```
+
+**The pending queue.** A reviewer lists the requests in one status, oldest first. Each one shows its current revision number, the discount and the advice:
+
+```bash
+curl -H 'X-User-Id: reviewer-ben' 'localhost:8080/pricing-exceptions?status=PENDING'
+# [{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna",
+#   "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
+#   "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
+#   "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
+#   "createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}]
+```
+
+**Approve.** The reviewer states the revision number they looked at. The advice does not bind them:
+
+```bash
+curl -i -X POST localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138/approve \
+  -H 'X-User-Id: reviewer-ben' \
+  -H 'Idempotency-Key: readme-demo-3' \
+  -H 'Content-Type: application/json' \
+  -d '{"revisionNumber":1}'
+# HTTP/1.1 200
+# Content-Type: application/json
+#
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-anna", ...,
+#  "decision":{"decidedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},
+#  "previousRequestId":null}
+```
+
+Declining is the same call on `/decline`, with a required note: `-d '{"revisionNumber":1,"note":"The written offer was not attached"}'`. `rm-anna` trying either call gets `403`, and so does a reviewer deciding their own request.
+
+**Read the approved discount.** The mortgage application process asks for the approval in effect for an application. The answer is always a list: one item, or empty when there is no approval:
+
+```bash
+curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1001/approved-discounts
+# [{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z"}]
+
+curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1002/approved-discounts
+# []
 ```
 
 ## Seed data
@@ -189,6 +230,10 @@ The brief sets no limits for a pricing exception, so the service assumes these. 
 - **Reason.** 10 to 1000 characters, counted as characters, not bytes.
 - **One pending request per application.** A second one gets `409`. The database enforces this, so two submits that race still leave exactly one pending request.
 - **Reading.** Any known internal user may read any request.
+- **Deciding.** Only a user with the reviewer role may approve or decline, and never their own request (so `dual-erin` cannot decide what she submitted). The call states the revision number the reviewer looked at, and it must be the request's current revision; otherwise `409`. A decline needs a note of at most 1000 characters. An approval carries no note.
+- **Advice.** Every revision carries a recommendation and a rationale from a rule-based advisor. The advice is non-binding: nothing reads it when a decision is made. It flags a discount above `pricing.advice.high-discount-bps` (default 50) and a reason shorter than `pricing.advice.min-reason-length` (default 30). A short reason is what counts as a weak one.
+- **Approved-discount lookup.** Returns the latest approval of an application as a list of one, and an empty list when there is none, always with `200`. An unknown application id also gets an empty list. After an approval a new request may be submitted; the earlier approval stays in effect until the new one is approved.
+- **Resubmit after a decline.** A declined request stays declined. The next submit for that application is a new request, and the service sets its `previousRequestId` to the declined request when the application's most recent request was declined. The caller does not send the link.
 - **Unknown application.** A submit for an application id that does not exist gets `404`. An id longer than 20 characters gets `400`.
 - **`Idempotency-Key`.** Required on every POST. Any non-blank value of at most 255 characters is accepted and used exactly as sent (no trimming, no change of case). A key belongs to one caller and one route, so another user, or the same user on another application, can use the same key without clashing. A key is kept for `pricing.idempotency.ttl` (default `24h`). The same key with the same body replays the stored response; a different body gets `422`; a retry while the first call is still running gets `409`. A replay returns the original status, `Location`, content type and body; other response headers are not stored. This follows the convention of the expired IETF Idempotency-Key draft and common industry practice. It is not a ratified standard.
 
@@ -215,6 +260,7 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-02 Submit a pricing exception](docs/stories/US-02-submit-a-pricing-exception.md) | `SubmitRequestE2ETest` |
 | [US-03 Retry safely](docs/stories/US-03-retry-safely.md) | `RetrySafelyE2ETest` |
 | [US-04 Decide a request with advice](docs/stories/US-04-decide-a-request-with-advice.md) | `DecideRequestE2ETest`, `AdviceThresholdsE2ETest` |
+| [US-05 Read the approved discount](docs/stories/US-05-read-the-approved-discount.md) | `ApprovedDiscountE2ETest` |
 
 From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
 
