@@ -29,6 +29,14 @@ The story file was committed first (`3d33b45`), before any test or code. The sto
 
 Product assumptions, in plain words: the lookup does not check that the application exists, so an unknown application id gets an empty list like any application without an approval; "latest" means the approval with the most recent decision time; a new request is linked only when the application's most recently submitted request was declined, so the first request for an application and a request that follows an approval have no link.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **Always 200 with a list.** One item or none. The application process then has one shape to handle and never has to tell "no approval" from an error.
+- **A new request is allowed after an approval, and the latest approval wins.** The earlier approval stays in effect until the newer request is itself approved, so there is never a gap without a valid discount.
+- **A declined request stays declined.** Trying again is a new request, linked to the declined one by the service, so the history keeps both decisions.
+
 ## Review notes
 
 The story's code was reviewed once, together with US-04, at commit `7d23ed6`. The review found no critical issues, and confirmed that the lookup reads the discount through the decided revision. Each fix below is its own commit. After the fixes the build is green with 112 tests, 6 of them for this story (commit `299aeab`).

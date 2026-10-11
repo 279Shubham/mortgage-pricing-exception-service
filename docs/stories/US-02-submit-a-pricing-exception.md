@@ -30,6 +30,16 @@ The story was delivered in three thin slices, each one tested before the next st
 
 Product assumptions, in plain words: the discount is a whole number from 1 to 200 bps (configurable) and below the application's standard rate; the reason is 10 to 1000 characters; any known user may read any request; and an unknown application is a 404. The README lists them under Assumptions.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **A submitted revision never changes.** A request holds numbered revisions, and the first one is written at submit. This is what later lets an approval point at exactly what the reviewer saw.
+- **One pending request per application, enforced by the database.** Two open requests for one application could end in two conflicting approvals. A unique constraint holds the rule even when two submits race; a check in the service alone would not.
+- **The limits are assumptions, and configurable.** The brief sets none, so the service assumes 1 to 200 bps, below the standard rate, with a reason of 10 to 1000 characters.
+- **Strict input.** A decimal or a number sent as a string is refused, never rounded, because a silently changed discount is worse than a rejected one.
+- **Spring Data JPA.** Chosen because it is what most Java reviewers know. The request row carries a version column so that concurrent changes cannot overwrite each other.
+
 ## Review notes
 
 The story's code was reviewed once, together with US-03. The review found no critical issues. Each fix below is its own commit, and where behaviour changed the failing test was committed first. After the fixes the build is green with 84 tests, 46 of them for this story (commit `116baf5`).

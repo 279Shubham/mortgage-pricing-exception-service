@@ -36,10 +36,36 @@ The story is delivered in three thin slices. In the first two the failing tests 
 2. **Withdraw, the rules, the binding, retries and the list of revisions.** `POST /pricing-exceptions/{id}/withdraw` closes a pending request and frees the application for a new one. Only the requester may revise or withdraw, and only while the request is pending. A decision that states a revision that has since been superseded is refused, proven through the real revise call. Both calls replay on a retry. `GET /pricing-exceptions/{id}/revisions` lists every revision with its original content and marks the superseded ones.
 3. **Concurrent changes.** A decision, a revision and a withdrawal all change the same versioned request row, so only one of them can be stored. What the losing caller gets is stated in the code and in the README, and the one-winner behaviour is checked on a running service.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **Revise instead of edit.** Two stakeholders pull in opposite directions: the relationship manager wants to change a submitted discount, and the reviewer's approval must apply to exactly what was reviewed. A revision gives both: the old revision is kept unchanged and marked superseded, and a decision on it is refused.
+- **Only the requester revises or withdraws.** A request has one owner.
+- **A withdrawal is not a decision.** It fills none of the decision fields; the history event records who withdrew and when.
+- **"Superseded" is derived, not stored.** A revision is superseded when the request's current revision number is higher than its own, so there is nothing to keep in sync.
+- **No handler and no automated test for concurrent changes (2026-10-11).** The version on the request row lets one change through. The losing caller gets a 500 instead of a 409. A test for it would depend on timing, so the behaviour is checked on a running service.
+
 ## Review notes
 
 Not reviewed yet.
 
 ## Verification evidence
 
-Not captured yet: the story is still open.
+Captured at `82ccb78`.
+
+**(a) Full build.** `./gradlew check` passed: 143 tests, 0 failures, 0 errors. `make test` in a container exited 0.
+
+**(b) A running service, scripted.** A script of 126 checks called the service over HTTP. For this story it covered: revise by another relationship manager and by a reviewer (403), an invalid revision (400), an unknown request (404), a revise and its retry (200, still revision 2), the revisions list (revision 1 superseded, revision 2 current), approving the superseded revision (409), revise and withdraw after a decision (409), withdraw by another user (403), a withdraw and its retry (200), a second withdraw (409), deciding or revising a withdrawn request (409), and a new request on the same application after the withdrawal (201).
+
+**(c) One winner (AC-7).** Twelve calls were sent at the same moment to one pending request: six approvals by one reviewer and six declines by another.
+
+```
+decline 200: 1
+approve 409: 2    decline 409: 2
+approve 500: 4    decline 500: 3
+
+history after the race: SUBMITTED, DECLINED
+```
+
+One decision was stored and the history has one decision event. Seven losing callers got a 500, which is the known gap. Only approve against decline was raced; a revision or a withdrawal racing a decision was not run.

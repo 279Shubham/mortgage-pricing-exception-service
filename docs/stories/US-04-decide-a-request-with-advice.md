@@ -36,7 +36,17 @@ The story was delivered in three thin slices. In each one the failing tests were
 
 Product assumptions, in plain words: any known user may list requests, as with reading one by id; an approval carries no note; a decline note is 1 to 1000 characters and may hold line breaks and tabs but no other control character; the advisory thresholds are separate from the hard limits on a discount (`pricing.discount.*`), which still reject a submission outright.
 
-**Not in this story.** Two reviewers deciding the same request at the same moment: the request row carries an optimistic-lock version, so only one decision is stored, but the loser's error is not yet turned into a clean 409. That belongs to the story that adds revise and withdraw, where all the races on one request are handled together.
+**Not in this story.** Two reviewers deciding the same request at the same moment: the request row carries an optimistic-lock version, so only one decision is stored, but the loser's error is not yet turned into a clean 409. It was later decided to leave it that way; see Decisions below and US-06.
+
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **Four eyes.** Only a reviewer decides, and never their own request. The dual-role seeded user exists to prove the second half.
+- **The call states the revision the reviewer looked at.** If the request was revised in the meantime, the decision is refused instead of landing on something the reviewer never saw.
+- **A decline needs a note; an approval has none.** The requester has to learn why, and the note is what they act on when they submit again.
+- **The advisor is rule-based and never decides.** No paid service is allowed, and rules are deterministic and testable. It is an interface so that an LLM-backed advisor can replace it without touching the callers. The advice is stored with the revision, so the history shows what the reviewer was told.
+- **Concurrent decisions are left unfinished, on purpose (2026-10-11).** Only one of two simultaneous decisions is stored. The loser gets a 500 and not a clean 409. This was accepted to keep the service small, and it is stated in the code and in the README.
 
 ## Review notes
 

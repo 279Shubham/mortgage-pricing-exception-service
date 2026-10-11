@@ -31,6 +31,14 @@ One slice, with the failing tests committed before the code:
 
 Not in this story: an outbox table. If the service stops between the commit and the log line, that one event is stored but not announced.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **The history is read from what is already stored.** Events, revisions and the decline note are written by the other stories; this one only puts them side by side.
+- **Any internal user may read it,** as with reading a request.
+- **Events are published by a plain class, after commit, as log lines.** No broker and no outbox table: the point is to show where publishing belongs, and that nothing is announced for a change that did not happen.
+
 ## Review notes
 
 Not reviewed yet.
@@ -65,4 +73,4 @@ c.b.p.service.RequestEventPublisher      : Request event REVISED on request 4106
 c.b.p.service.RequestEventPublisher      : Request event DECLINED on request 410641d6-99e4-4dbd-bbe6-ca31714041f1 revision 2 by reviewer-lex at 2026-10-11T21:50:47.813Z
 ```
 
-Not captured: a run of the suite inside the container (`make test`).
+**(d) In a container.** At `82ccb78`, `make test` exited 0 with the history tests in the suite.

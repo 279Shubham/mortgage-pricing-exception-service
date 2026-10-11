@@ -33,6 +33,18 @@ The story was delivered in four thin slices, each one runnable and tested before
 
 **Follow-up (2026-10-11).** The code was reorganised from ports and adapters into a plain controller → service → repository layout, for simpler code. Only the Spring Data repositories are interfaces. Behaviour is unchanged: the same 16 end-to-end tests pass, and the architecture test now enforces the new layering.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **Docker and Make first, Gradle as the fallback.** The reviewer's machine is unknown, so one command must work with only Docker installed. `./gradlew bootRun` stays for anyone who has JDK 21.
+- **Spring Boot 4.1 instead of 3.5.** Open-source support for the 3.5 line ended on 2026-06-30, so the supported line was chosen, at the cost of some newer APIs.
+- **Identity is a header checked against seeded users.** `X-User-Id` is enough to enforce the roles in a demo and costs almost nothing. Real authentication is a production gap, not part of this service.
+- **Six seeded users, one of them with both roles.** A second relationship manager and a second reviewer make "not your request" visible, and the dual-role user makes the four-eyes rule testable. All names are fictional, and ids are readable (`rm-lana`, `MA-1001`) so that calls and tests read easily. The users were renamed on 2026-10-12; only the names and ids changed.
+- **Errors stay minimal.** Spring's built-in Problem Details with correct status codes, and no catalogue of error types or per-field error lists.
+- **End-to-end tests only.** Every test calls the running service over HTTP, so the test report reads as the list of acceptance criteria. The one exception is an architecture test that guards the layering and the injected clock.
+- **Plain layers instead of ports and adapters.** Controller, service, repository. An interface exists only where a swap is realistic: the Spring Data repositories and, later, the review advisor.
+
 ## Review notes
 
 The story's code was reviewed twice. Every warning was fixed in its own commit, and the build was green after each one.

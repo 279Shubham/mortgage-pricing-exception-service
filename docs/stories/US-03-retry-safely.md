@@ -32,6 +32,16 @@ The story was delivered in three thin slices, each one tested before the next st
 
 The behaviour follows the convention of the expired IETF Idempotency-Key draft and common industry practice. It is not a ratified standard.
 
+### Decisions
+
+What was decided while planning this story, and why:
+
+- **A key is required on every POST.** Upstream systems retry, and a duplicate pricing exception is a real cost. Making the key optional would leave the unsafe path as the default.
+- **The key is claimed in the same transaction as the change.** A crash can then never leave a key without its request, or a request without its key.
+- **Same key, different body is 422.** It is a caller's mistake and must not be answered with someone else's stored response.
+- **A plain class over a database table.** No library and no second store. Moving the records to Redis would be a later change behind the same class.
+- **Keys expire after 24 hours, configurable.** Long enough for any realistic retry, short enough that the table does not grow forever.
+
 ## Review notes
 
 The story's code was reviewed once, together with US-02. The review found no critical issues and confirmed the central design: the key claim, the business write and the stored response commit or roll back together, and no path orphans a claim or runs the business write twice for one key. Each fix below is its own commit. After the fixes the build is green with 84 tests, 15 of them for this story (commit `116baf5`).
