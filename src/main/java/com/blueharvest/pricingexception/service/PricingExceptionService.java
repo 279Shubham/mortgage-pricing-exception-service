@@ -7,6 +7,7 @@ import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
 import com.blueharvest.pricingexception.model.RequestEventType;
 import com.blueharvest.pricingexception.model.RequestRevision;
+import com.blueharvest.pricingexception.model.RequestStatus;
 import com.blueharvest.pricingexception.model.Role;
 import com.blueharvest.pricingexception.repository.MortgageApplicationRepository;
 import com.blueharvest.pricingexception.repository.PricingExceptionRequestRepository;
@@ -14,6 +15,7 @@ import com.blueharvest.pricingexception.repository.RequestEventRepository;
 import com.blueharvest.pricingexception.repository.RequestRevisionRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,7 +70,17 @@ public class PricingExceptionService {
 	public PricingExceptionResponse find(UUID id) {
 		PricingExceptionRequest request = requests.findById(id)
 			.orElseThrow(() -> new NotFoundException("Unknown pricing exception request " + id));
-		RequestRevision revision = revisions.findByRequestIdAndRevisionNumber(id, request.getCurrentRevision())
+		return withCurrentRevision(request);
+	}
+
+	@Transactional(readOnly = true)
+	public List<PricingExceptionResponse> findByStatus(RequestStatus status) {
+		return requests.findByStatusOrderBySubmittedAtAsc(status).stream().map(this::withCurrentRevision).toList();
+	}
+
+	private PricingExceptionResponse withCurrentRevision(PricingExceptionRequest request) {
+		RequestRevision revision = revisions
+			.findByRequestIdAndRevisionNumber(request.getId(), request.getCurrentRevision())
 			.orElseThrow();
 		return PricingExceptionResponse.from(request, revision);
 	}

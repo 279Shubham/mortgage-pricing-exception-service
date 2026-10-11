@@ -19,6 +19,7 @@ A criterion gets its row in this table when its tests are written, so a criterio
 
 | Criterion | Proved by |
 |-----------|-----------|
+| AC-1 | `a reviewer lists requests filtered by status`<br>`a missing or unknown status filter gets 400` |
 | AC-3 | `a reviewer approves a pending request by stating the revision reviewed`<br>`an approve that does not state the revision gets 400`<br>`a revision number that is not the current revision gets 409`<br>`deciding an unknown request gets 404` |
 | AC-4 | `a reviewer declines a pending request with a note`<br>`a decline without a note gets 400` |
 | AC-5 | `the dual-role user cannot decide their own request`<br>`an RM-only user cannot decide at all`<br>`deciding an already approved or declined request gets 409` |

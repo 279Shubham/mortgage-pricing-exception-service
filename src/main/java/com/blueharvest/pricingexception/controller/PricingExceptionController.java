@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -58,6 +60,11 @@ class PricingExceptionController {
 	@GetMapping("/pricing-exceptions/{id}")
 	PricingExceptionResponse find(Actor caller, @PathVariable UUID id) {
 		return service.find(id);
+	}
+
+	@GetMapping("/pricing-exceptions")
+	List<PricingExceptionResponse> findByStatus(Actor caller, @RequestParam RequestStatus status) {
+		return service.findByStatus(status);
 	}
 
 	@PostMapping("/pricing-exceptions/{id}/approve")
