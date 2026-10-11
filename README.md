@@ -7,11 +7,11 @@ Relationship managers (RMs) sometimes need to offer a customer a better rate tha
 ## Quick start
 
 ```bash
-make run
-curl -H 'X-User-Id: rm-lana' localhost:8080/me
+make run     # then open http://localhost:8080/
+make test
 ```
 
-You need Docker and nothing else. No local JDK is required.
+You need Docker and nothing else. No local JDK is required. The page at `http://localhost:8080/` walks the whole flow; the same calls with `curl` are under [Try it](#try-it).
 
 ## Run
 
@@ -50,180 +50,74 @@ Both commands run three things, and any failure fails the build:
 
 The tests are end-to-end only, and their names follow the story acceptance criteria (for example `US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me`), so the test report reads as a checklist of user stories. Each story in [`docs/stories/`](docs/stories/) maps its criteria to the tests that prove them.
 
-## Explore the API
+## Try it
 
-**In a browser.** Open `http://localhost:8080/` for a single page that walks the whole flow: pick a seeded user at the top right, submit a request, then switch user to approve, decline, revise or withdraw it, and open its history. The page offers every action to every user and shows the service's answer, so a refusal such as `403` is visible too.
+**In a browser.** Open `http://localhost:8080/`. Pick a seeded user at the top right, submit a request, then switch user to approve, decline, revise or withdraw it, and open its history. The page offers every action to every user and shows the service's answer, so a refusal such as `403` is visible too. A good first path: submit as Lana, switch to Lex Luthor, approve, press History.
 
-**Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id: one interceptor checks the caller before any controller runs, so a new endpoint is protected by default. Actuator endpoints are served outside that caller check, so only `/actuator/health` is exposed and the actuator discovery page (`/actuator`) is switched off. A missing or unknown id gets `401` with an `application/problem+json` body:
-
-```json
-{"detail":"Missing or unknown X-User-Id","instance":"/me","status":401,"title":"Unauthorized"}
-```
-
-This header is a demo-only trust model, not authentication. See [Production readiness gaps](#production-readiness-gaps).
-
-**Health:**
+**With curl.** Every call names the caller in the `X-User-Id` header, and every POST needs an `Idempotency-Key`. The ids and times in the output differ on every run.
 
 ```bash
-curl localhost:8080/actuator/health
-# {"groups":["liveness","readiness"],"status":"UP"}
-```
-
-**Seeded users** (open, feeds the demo user switcher):
-
-```bash
-curl localhost:8080/users
-# [{"id":"application-process","displayName":"Mortgage application process (service user)","roles":["APPLICATION_PROCESS"]},
-#  {"id":"dual-clark","displayName":"Clark Kent (RM + Reviewer, four-eyes demo)","roles":["RM","REVIEWER"]}, ...]
-```
-
-**Who am I:**
-
-```bash
-curl -H 'X-User-Id: rm-lana' localhost:8080/me
-# {"id":"rm-lana","displayName":"Lana (Relationship Manager)","roles":["RM"]}
-```
-
-**Mortgage applications:**
-
-```bash
-curl -H 'X-User-Id: reviewer-lex' localhost:8080/applications
-# [{"id":"MA-1001","borrowerLabel":"Fictional household A","standardRateBps":425}, ...]
-```
-
-**No identity, so 401:**
-
-```bash
-curl -i localhost:8080/me
-# HTTP/1.1 401
-# WWW-Authenticate: X-User-Id realm="pricing-exception-service"
-# Content-Type: application/problem+json
-#
-# {"detail":"Missing or unknown X-User-Id","instance":"/me","status":401,"title":"Unauthorized"}
-```
-
-**Submit a pricing exception.** An RM asks for a discount on an application. Every POST needs an `Idempotency-Key` header (see [Assumptions](#assumptions)):
-
-```bash
+# 1. Lana, a relationship manager, asks for 75 bps on application MA-1001
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-lana' \
-  -H 'Idempotency-Key: readme-demo-2' \
-  -H 'Content-Type: application/json' \
+  -H 'X-User-Id: rm-lana' -H 'Idempotency-Key: demo-1' -H 'Content-Type: application/json' \
   -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
 # HTTP/1.1 201
 # Location: /pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
-# Content-Type: application/json
 #
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana",
-#  "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
-#  "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
-#  "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
-#  "createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}
-```
+# {"id":"7fe8deca-...","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana",
+#  "currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote",
+#   "advice":{"recommendation":"REVIEW_CAREFULLY",
+#    "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."}, ...},
+#  "decision":null,"previousRequestId":null}
 
-The id and the times differ on every run. Use the `Location` you get back in the next calls. `advice` is a non-binding recommendation stored with the revision; 75 bps is above the advisory threshold, so it says to review carefully. `decision` stays `null` until a reviewer decides. `previousRequestId` is only set on a resubmit after a decline.
-
-**Read it back.** Any known user can read a request, here a reviewer:
-
-```bash
-curl -H 'X-User-Id: reviewer-lex' localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana", ...}
-```
-
-**Retry safely.** Sending the exact same submit again, with the same key, does not create a second request. It returns the stored answer: the same `201`, the same `Location` and the same body, byte for byte.
-
-Reusing the key for a different body (here `"discountBps":30`) is refused with `422`:
-
-```bash
-curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-lana' \
-  -H 'Idempotency-Key: readme-demo-2' \
-  -H 'Content-Type: application/json' \
-  -d '{"discountBps":30,"reason":"Retention offer matching a competitor quote"}'
-# HTTP/1.1 422
-# Content-Type: application/problem+json
-#
-# {"detail":"This Idempotency-Key was already used with a different request","instance":"/applications/MA-1001/pricing-exceptions","status":422,"title":"Unprocessable Content"}
-```
-
-Leaving the `Idempotency-Key` header out gets `400`:
-
-```bash
-curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-lana' \
-  -H 'Content-Type: application/json' \
-  -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
-# HTTP/1.1 400
-# Content-Type: application/problem+json
-#
-# {"detail":"Required header 'Idempotency-Key' is not present.","instance":"/applications/MA-1001/pricing-exceptions","status":400,"title":"Bad Request"}
-```
-
-**The pending queue.** A reviewer lists the requests in one status, oldest first. Each one shows its current revision number, the discount and the advice:
-
-```bash
+# 2. Lex, a reviewer, looks at the pending queue and approves revision 1
 curl -H 'X-User-Id: reviewer-lex' 'localhost:8080/pricing-exceptions?status=PENDING'
-# [{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana",
-#   "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
-#   "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
-#   "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
-#   "createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}]
-```
-
-**Approve.** The reviewer states the revision number they looked at. The advice does not bind them:
-
-```bash
-curl -i -X POST localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138/approve \
-  -H 'X-User-Id: reviewer-lex' \
-  -H 'Idempotency-Key: readme-demo-3' \
-  -H 'Content-Type: application/json' \
+curl -X POST localhost:8080/pricing-exceptions/<id>/approve \
+  -H 'X-User-Id: reviewer-lex' -H 'Idempotency-Key: demo-2' -H 'Content-Type: application/json' \
   -d '{"revisionNumber":1}'
-# HTTP/1.1 200
-# Content-Type: application/json
-#
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-lana", ...,
-#  "decision":{"decidedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},
-#  "previousRequestId":null}
-```
+# {"id":"7fe8deca-...","status":"APPROVED", ...,
+#  "decision":{"decidedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null}}
 
-Declining is the same call on `/decline`, with a required note: `-d '{"revisionNumber":1,"note":"The written offer was not attached"}'`. `rm-lana` trying either call gets `403`, and so does a reviewer deciding their own request.
-
-**Read the approved discount.** The mortgage application process asks for the approval in effect for an application. The answer is always a list: one item, or empty when there is no approval:
-
-```bash
+# 3. The mortgage application process reads the approved discount
 curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1001/approved-discounts
-# [{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z"}]
+# [{"requestId":"7fe8deca-...","revision":1,"discountBps":75,"approvedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z"}]
 
-curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1002/approved-discounts
-# []
-```
-
-**Revise or withdraw.** While a request is pending, its requester can replace the discount and reason, or withdraw it. A revision gets the next revision number and its own advice; the earlier revisions stay readable on `/revisions`:
-
-```bash
-curl -X POST localhost:8080/pricing-exceptions/<id>/revise \
-  -H 'X-User-Id: rm-lana' -H 'Idempotency-Key: readme-demo-4' -H 'Content-Type: application/json' \
-  -d '{"discountBps":40,"reason":"Customer accepted a smaller discount after the call"}'
-
-curl -X POST localhost:8080/pricing-exceptions/<id>/withdraw -H 'X-User-Id: rm-lana' -H 'Idempotency-Key: readme-demo-5'
-
-curl -H 'X-User-Id: reviewer-lex' localhost:8080/pricing-exceptions/<id>/revisions
-```
-
-**Full history.** Any internal user can read everything that happened to a request, in order. Each event carries the discount, reason and advice of the revision it applies to, so the advice stands next to the human decision:
-
-```bash
+# 4. Anyone internal reads the full history
 curl -H 'X-User-Id: rm-chloe' localhost:8080/pricing-exceptions/<id>/history
-# {"requestId":"410641d6-99e4-4dbd-bbe6-ca31714041f1","applicationId":"MA-1001","status":"DECLINED","previousRequestId":null,"events":[
-#  {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-lana","occurredAt":"2026-10-11T21:50:47.734Z","discountBps":75, ...,
+# {"requestId":"...","applicationId":"MA-1001","status":"APPROVED","previousRequestId":null,"events":[
+#  {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-lana","occurredAt":"...","discountBps":75, ...,
 #   "advice":{"recommendation":"REVIEW_CAREFULLY", ...},"note":null},
-#  {"type":"REVISED","revisionNumber":2,"actorId":"rm-lana","occurredAt":"2026-10-11T21:50:47.781Z","discountBps":40, ...,
-#   "advice":{"recommendation":"APPROVE", ...},"note":null},
-#  {"type":"DECLINED","revisionNumber":2,"actorId":"reviewer-lex","occurredAt":"2026-10-11T21:50:47.813Z","discountBps":40, ...,
-#   "advice":{"recommendation":"APPROVE", ...},"note":"The written offer was not attached"}]}
+#  {"type":"APPROVED","revisionNumber":1,"actorId":"reviewer-lex", ...}]}
 ```
 
-Each stored event is also written to the service log after its transaction commits (`RequestEventPublisher`). That log line is where a message to a broker would go in production.
+Things worth trying after that:
+
+- **Retry.** Send step 1 again with the same key: the same `201`, `Location` and body come back, and no second request is created. Change the body and keep the key: `422`.
+- **Four eyes.** Approve as `rm-lana`: `403`. Submit as `dual-clark`, who holds both roles, and approve as `dual-clark`: `403`.
+- **Revise.** `POST /pricing-exceptions/<id>/revise` as the requester with a new `discountBps` and `reason`. The request moves to revision 2 with its own advice. Approving `{"revisionNumber":1}` now gets `409`.
+- **Decline and try again.** `POST .../decline` needs a note: `{"revisionNumber":1,"note":"The written offer was not attached"}`. The next submit for that application is a new request whose `previousRequestId` points at the declined one.
+- **Withdraw.** `POST .../withdraw` as the requester, with no body. The application then accepts a new request.
+
+## API
+
+| Call | Who | What it does |
+|------|-----|--------------|
+| `POST /applications/{applicationId}/pricing-exceptions` | relationship manager | Submit a request. `201` with `Location` |
+| `GET /pricing-exceptions/{id}` | any known user | Read a request with its current revision, advice and decision |
+| `GET /pricing-exceptions?status=PENDING` | any known user | List the requests in one status, oldest first |
+| `POST /pricing-exceptions/{id}/approve` | reviewer, not the requester | Approve the stated revision |
+| `POST /pricing-exceptions/{id}/decline` | reviewer, not the requester | Decline the stated revision, with a note |
+| `POST /pricing-exceptions/{id}/revise` | the requester | Replace the discount and reason with a new revision |
+| `POST /pricing-exceptions/{id}/withdraw` | the requester | Withdraw a pending request |
+| `GET /pricing-exceptions/{id}/revisions` | any known user | Every revision, with the superseded ones marked |
+| `GET /pricing-exceptions/{id}/history` | any known user | Every event in order, with the advice next to each decision |
+| `GET /applications/{applicationId}/approved-discounts` | any known user | The approval in effect: a list of one, or empty |
+| `GET /applications`, `GET /me` | any known user | The seeded applications; the caller and their roles |
+| `GET /users`, `GET /actuator/health` | open | The seeded users (feeds the page's user switcher); health |
+
+Errors are `application/problem+json`: `400` invalid input or a missing key, `401` a missing or unknown `X-User-Id`, `403` wrong role or not your request, `404` unknown request or application, `409` a rule conflict (already decided, superseded revision, second pending request), `422` a key reused with another body.
+
+One interceptor checks the caller before any controller runs, so a new endpoint is protected by default. The header is a demo-only trust model, not authentication; see [Production readiness gaps](#production-readiness-gaps). There is no OpenAPI or Swagger page.
 
 ## Seed data
 
@@ -251,6 +145,61 @@ All seed data is fictional. The service loads it on every start, and it resets o
 | `MA-1005` | Fictional household E | 355 |
 | `MA-1006` | Fictional household F (low rate) | 150 |
 
+## Stakeholder conflict: changing a submitted discount
+
+The brief holds two wishes that cannot both be met literally. The relationship manager wants to change a discount after submitting it. The reviewer's approval must apply to exactly the request that was reviewed.
+
+The service resolves it with **revisions**. A submitted revision never changes. To change the discount, the requester revises: the request gets a new numbered revision with its own advice, and the earlier one stays readable and is marked superseded. A decision states the revision number the reviewer looked at, and the service refuses it with `409` if that is no longer the current one. So the manager can still change course, and an approval can never land on something the reviewer did not see.
+
+## Scope choices
+
+Built, because the core value depends on it:
+
+- The full lifecycle: submit, revise, withdraw, approve, decline, resubmit after a decline.
+- Four-eyes rules, one pending request per application (held by the database), and retry safety on every POST.
+- A rule-based advisor whose advice is stored with each revision and never binds the reviewer.
+- The approved-discount lookup for the application process, the full history, and a small page to try it all.
+
+Left out, on purpose:
+
+- **Real authentication.** A header checked against seeded users stands in for it.
+- **An LLM advisor.** No paid service is allowed. `ReviewAdvisor` is an interface, so one can replace the rules later.
+- **Approval tiers, authority limits and approvals that expire.** Natural next steps, not needed to show the core.
+- **A message broker and an outbox.** Events are logged after commit, which shows where publishing belongs.
+- **A clean answer for the loser of a race.** Only one of two simultaneous changes is stored, but the loser gets a `500`. Accepted to keep the service small.
+- **Unit tests.** The end-to-end suite is the evidence of behaviour.
+- **An OpenAPI page and a polished UI.**
+
+## Architecture and decisions
+
+Plain layered Spring MVC: **controller → service → repository**, on Java 21, Spring Boot 4.1, Spring Data JPA, H2 and Flyway.
+
+```
+controller/   HTTP endpoints, no logic
+service/      the rules: PricingExceptionService, DecisionService, RequestHistoryService,
+              IdempotencyService, RuleBasedReviewAdvisor, RequestEventPublisher
+repository/   Spring Data interfaces
+model/ dto/   entities and response shapes
+web/          caller check and error mapping
+```
+
+| Decision | Why |
+|----------|-----|
+| Layers, not ports and adapters | Simpler to read. An earlier ports-and-adapters layout was removed for that reason |
+| Interfaces only for the repositories and `ReviewAdvisor` | Those are the two realistic swaps: H2 to Postgres, and rules to an LLM. Everything else is a plain class |
+| A request holds immutable, numbered revisions | An approval can point at exactly what was reviewed |
+| A version column on the request row | Two simultaneous changes cannot both be stored |
+| The one-pending rule is a database constraint | It holds even when two submits race |
+| The idempotency key is claimed in the same transaction as the change | No key without its request, and no request without its key |
+| Advice is stored with the revision | The history shows what the reviewer was told, even if the rules change later |
+| Time comes from one injected clock | Tests control time, for example the 24-hour key expiry, without sleeping |
+| End-to-end tests only, named after acceptance criteria | The test report reads as the list of user stories |
+| Two build gates: method complexity and an architecture test | "Simple code" and the layering are checked, not just promised |
+| Flyway owns the schema; H2 runs in PostgreSQL mode | Reproducible from an empty database, and close to the production target |
+| Spring Boot 4.1 | Open-source support for the 3.5 line ended on 2026-06-30 |
+
+Each story file lists the decisions taken for that story.
+
 ## Assumptions
 
 The brief sets no limits for a pricing exception, so the service assumes these. Each limit is either configurable or a one-line change.
@@ -266,15 +215,9 @@ The brief sets no limits for a pricing exception, so the service assumes these. 
 - **Unknown application.** A submit for an application id that does not exist gets `404`. An id longer than 20 characters gets `400`.
 - **`Idempotency-Key`.** Required on every POST. Any non-blank value of at most 255 characters is accepted and used exactly as sent (no trimming, no change of case). A key belongs to one caller and one route, so another user, or the same user on another application, can use the same key without clashing. A key is kept for `pricing.idempotency.ttl` (default `24h`). The same key with the same body replays the stored response; a different body gets `422`; a retry while the first call is still running gets `409`. A replay returns the original status, `Location`, content type and body; other response headers are not stored. This follows the convention of the expired IETF Idempotency-Key draft and common industry practice. It is not a ratified standard.
 
-## Stakeholder conflict: changing a submitted discount
-
-## Scope choices
-
-## Architecture and decisions
-
 ## How AI agents were used and verified
 
-AI agents wrote the plans, the tests and the code. Each feature went through the same loop, and each step left something a person can check:
+AI agents wrote the plans, the tests and the code; a person set the scope, made the product decisions and steered. Each feature went through the same loop, and each step left something a person can check:
 
 1. **Plan.** A user story with numbered acceptance criteria, and a plan that splits it into thin slices.
 2. **Execute.** For each slice, the failing end-to-end tests are committed first and the code that makes them pass second. The commit history shows the pairs, for example `9fa5852` (tests) then `15b0583` (code).
@@ -294,7 +237,12 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-07 See a request's full history](docs/stories/US-07-see-a-request-full-history.md) | `RequestHistoryE2ETest` |
 | [US-08 Try the service in a browser](docs/stories/US-08-try-the-service-in-a-browser.md) | `BrowserPageE2ETest` |
 
-From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
+Where the trail is weaker than the loop above:
+
+- **Order.** From US-04 onwards the story file is committed with its criteria before the tests and code. The first three story files were written up after their code.
+- **Review.** US-01 to US-05 were reviewed and their findings are in the stories. US-06, US-07 and US-08 were not reviewed; their stories say so.
+- **How much process.** The first stories ran a heavy workflow with separate planning, review and verification agents. It produced far more planning text than code, so the last stories were planned and written directly in one session, with the same story-first, test-first order.
+- **Manual checks.** Beyond the suite, the finished service was exercised with a script of 126 HTTP checks, three races of twelve parallel calls, and a walk through the page in a browser. The results are in US-06 and US-08.
 
 ## Production readiness gaps
 
@@ -309,3 +257,5 @@ From US-04 onwards the story file is committed with its criteria before the test
 - **Errors are Spring's built-in Problem Details only.** There is no catalogue of error types. This is by design.
 
 ## Time spent
+
+_To be filled in by the author._
