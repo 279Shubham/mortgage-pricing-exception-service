@@ -165,6 +165,37 @@ class DecideRequestE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-04 AC-4: a decline note with a control character gets 400")
+	void declineNoteWithControlCharacterIsBadRequest() {
+		String id = submitted("rm-anna", "MA-1001", 25);
+
+		decide("reviewer-dana", id, "decline", newIdempotencyKey(), declineBody(DECLINE_NOTE + "\\u0001"))
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+		decide("reviewer-dana", id, "decline", newIdempotencyKey(), declineBody("\\u0001".repeat(1000)))
+			.then().statusCode(400)
+			.contentType(PROBLEM_JSON);
+
+		assertStillPendingAndUndecided(id);
+	}
+
+	@Test
+	@DisplayName("US-04 AC-4: a 1000-character reason and note of quotes and line breaks are declined and replayed")
+	void longestEscapedReasonAndNoteAreDeclinedAndReplayed() {
+		String id = submitted("rm-anna", "MA-1001", 25, "\\\"".repeat(1000));
+		String key = newIdempotencyKey();
+		String body = declineBody("\\n".repeat(999) + "x");
+
+		Response original = decide("reviewer-dana", id, "decline", key, body);
+		original.then().statusCode(200)
+			.body("status", equalTo("DECLINED"))
+			.body("currentRevision.reason", equalTo("\"".repeat(1000)))
+			.body("decision.note", equalTo("\n".repeat(999) + "x"));
+
+		assertThat(decide("reviewer-dana", id, "decline", key, body).asString()).isEqualTo(original.asString());
+	}
+
+	@Test
 	@DisplayName("US-04 AC-5: the dual-role user cannot decide their own request")
 	void dualRoleUserCannotDecideOwnRequest() {
 		String id = submitted("dual-erin", "MA-1001", 25);
@@ -367,6 +398,10 @@ class DecideRequestE2ETest extends E2ETestBase {
 
 	private static Response decline(String userId, String id) {
 		return decide(userId, id, "decline", newIdempotencyKey(), DECLINE_BODY);
+	}
+
+	private static String declineBody(String note) {
+		return "{\"revisionNumber\":1,\"note\":\"" + note + "\"}";
 	}
 
 	private static ValidatableResponse read(String id) {

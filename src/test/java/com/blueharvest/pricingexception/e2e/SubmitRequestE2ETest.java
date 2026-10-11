@@ -190,6 +190,8 @@ class SubmitRequestE2ETest extends E2ETestBase {
 				Arguments.of("a reason of ten spaces", "MA-1001", body(25, " ".repeat(10))),
 				Arguments.of("a 9-character reason", "MA-1001", body(25, "x".repeat(9))),
 				Arguments.of("a 1001-character reason", "MA-1001", body(25, "x".repeat(1001))),
+				Arguments.of("a reason with a control character", "MA-1001", body(25, VALID_REASON + "\\u0001")),
+				Arguments.of("a reason of 1000 control characters", "MA-1001", body(25, "\\u0001".repeat(1000))),
 				Arguments.of("an unknown extra field", "MA-1001", "{\"discountBps\":25," + reason + ",\"unexpected\":1}"),
 				Arguments.of("a client-supplied requestedBy", "MA-1001",
 						"{\"discountBps\":25," + reason + ",\"requestedBy\":\"rm-carl\"}"),
