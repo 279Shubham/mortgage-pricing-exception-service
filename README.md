@@ -25,6 +25,16 @@ make stop             # stops the running container (Ctrl+C in the make run term
 
 `make run` runs in the foreground and builds an image for your machine's own architecture (arm64 or amd64).
 
+**Without `make` (for example on Windows).** `make` only wraps these Docker commands, which work the same in PowerShell, cmd and any Unix shell. Docker Desktop must be in its default Linux-containers mode.
+
+```bash
+docker build -t pricing-exception-service .
+docker run --rm --name pricing-exception-service -p 8080:8080 pricing-exception-service
+docker stop pricing-exception-service        # from another terminal, or Ctrl+C in the first one
+```
+
+For another host port, change the first number: `-p 9090:8080`.
+
 **Directly with Gradle (fallback).** This needs JDK 21.
 
 ```bash
@@ -41,6 +51,8 @@ Without SDKMAN, install any JDK 21 (for example `sdk install java 21.0.10-tem`).
 make test         # runs every check inside a container, no local JDK needed
 ./gradlew check   # the same checks locally, needs JDK 21
 ```
+
+Without `make`, the container run is `docker build --target test --progress=plain --no-cache-filter test .`, and on Windows the local run is `gradlew.bat check`.
 
 Both commands run three things, and any failure fails the build:
 
