@@ -2,6 +2,8 @@ package com.blueharvest.pricingexception.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,17 +30,27 @@ public class RequestRevision {
 
 	private String reason;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "advice_recommendation")
+	private AdviceRecommendation adviceRecommendation;
+
+	@Column(name = "advice_rationale")
+	private String adviceRationale;
+
 	@Column(name = "created_at")
 	private Instant createdAt;
 
 	protected RequestRevision() {
 	}
 
-	public RequestRevision(UUID requestId, int revisionNumber, int discountBps, String reason, Instant createdAt) {
+	public RequestRevision(UUID requestId, int revisionNumber, int discountBps, String reason, Advice advice,
+			Instant createdAt) {
 		this.requestId = requestId;
 		this.revisionNumber = revisionNumber;
 		this.discountBps = discountBps;
 		this.reason = reason;
+		this.adviceRecommendation = advice.recommendation();
+		this.adviceRationale = advice.rationale();
 		this.createdAt = createdAt;
 	}
 
@@ -60,6 +72,10 @@ public class RequestRevision {
 
 	public String getReason() {
 		return reason;
+	}
+
+	public Advice getAdvice() {
+		return new Advice(adviceRecommendation, adviceRationale);
 	}
 
 	public Instant getCreatedAt() {

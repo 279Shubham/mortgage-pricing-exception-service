@@ -1,5 +1,6 @@
 package com.blueharvest.pricingexception.dto;
 
+import com.blueharvest.pricingexception.model.Advice;
 import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestRevision;
 import com.blueharvest.pricingexception.model.RequestStatus;
@@ -14,11 +15,11 @@ public record PricingExceptionResponse(UUID id, String applicationId, RequestSta
 				request.getRequestedBy(), request.getSubmittedAt(), Revision.from(revision), Decision.from(request));
 	}
 
-	public record Revision(int number, int discountBps, String reason, Instant createdAt) {
+	public record Revision(int number, int discountBps, String reason, Advice advice, Instant createdAt) {
 
 		static Revision from(RequestRevision revision) {
 			return new Revision(revision.getRevisionNumber(), revision.getDiscountBps(), revision.getReason(),
-					revision.getCreatedAt());
+					revision.getAdvice(), revision.getCreatedAt());
 		}
 
 	}

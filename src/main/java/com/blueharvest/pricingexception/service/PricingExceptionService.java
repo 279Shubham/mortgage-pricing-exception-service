@@ -2,6 +2,7 @@ package com.blueharvest.pricingexception.service;
 
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.model.Actor;
+import com.blueharvest.pricingexception.model.Advice;
 import com.blueharvest.pricingexception.model.MortgageApplication;
 import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
@@ -33,6 +34,8 @@ public class PricingExceptionService {
 
 	private final RequestEventRepository events;
 
+	private final ReviewAdvisor advisor;
+
 	private final Clock clock;
 
 	private final int minBps;
@@ -41,12 +44,13 @@ public class PricingExceptionService {
 
 	public PricingExceptionService(MortgageApplicationRepository applications,
 			PricingExceptionRequestRepository requests, RequestRevisionRepository revisions,
-			RequestEventRepository events, Clock clock, @Value("${pricing.discount.min-bps}") int minBps,
-			@Value("${pricing.discount.max-bps}") int maxBps) {
+			RequestEventRepository events, ReviewAdvisor advisor, Clock clock,
+			@Value("${pricing.discount.min-bps}") int minBps, @Value("${pricing.discount.max-bps}") int maxBps) {
 		this.applications = applications;
 		this.requests = requests;
 		this.revisions = revisions;
 		this.events = events;
+		this.advisor = advisor;
 		this.clock = clock;
 		this.minBps = minBps;
 		this.maxBps = maxBps;
@@ -60,8 +64,9 @@ public class PricingExceptionService {
 		Instant now = clock.instant();
 		PricingExceptionRequest request = insertPending(
 				new PricingExceptionRequest(application.getId(), caller.id(), now));
+		Advice advice = advisor.advise(command.discountBps(), command.reason());
 		RequestRevision revision = revisions
-			.save(new RequestRevision(request.getId(), 1, command.discountBps(), command.reason(), now));
+			.save(new RequestRevision(request.getId(), 1, command.discountBps(), command.reason(), advice, now));
 		events.save(new RequestEvent(request.getId(), RequestEventType.SUBMITTED, 1, caller.id(), now));
 		return PricingExceptionResponse.from(request, revision);
 	}
