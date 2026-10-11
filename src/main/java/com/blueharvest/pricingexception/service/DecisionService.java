@@ -27,9 +27,10 @@ public class DecisionService {
 		this.clock = clock;
 	}
 
-	// Not implemented yet: two reviewers deciding the same request at the same moment.
-	// The version on the request row lets only one decision through; the other caller
-	// gets a 500 instead of a 409, and a retry with the same key then gets the 409.
+	// Not implemented yet: a decision, a revision and a withdrawal reaching the same request
+	// at the same moment. The version on the request row lets only one of them through; the
+	// other caller gets a 500 instead of a 409, and a retry with the same key is then
+	// answered from the stored state.
 	@Transactional
 	public PricingExceptionResponse decide(Actor caller, DecideCommand command) {
 		requireReviewer(caller);

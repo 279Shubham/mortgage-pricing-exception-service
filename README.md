@@ -272,7 +272,7 @@ From US-04 onwards the story file is committed with its criteria before the test
 - **Single instance.** The service runs as one instance, and health is the only actuator endpoint exposed.
 - **No cleanup job for idempotency records.** An expired record is removed only when the same key is reused, so production needs a scheduled cleanup. Until a record is removed, its stored response keeps a copy of the request's reason text.
 - **Postgres needs two changes.** Set `lock_timeout`, so that a retry of a call still in flight gets `409` instead of waiting. Replace the H2 generated column behind the one-pending rule with a partial unique index (H2 has no partial indexes).
-- **Concurrent decisions are not handled cleanly.** When two reviewers decide the same request at the same moment, only one decision is stored, but the other caller gets a `500` with Spring Boot's default error body instead of a `409`. Nothing is half-written, and a retry with the same key gets the `409`.
+- **Concurrent decisions are not handled cleanly.** When two reviewers decide the same request at the same moment, or a decision, a revision and a withdrawal reach it together, only one change is stored, but the other caller gets a `500` with Spring Boot's default error body instead of a `409`. Nothing is half-written, and a retry with the same key is answered from the stored state.
 - **Errors are Spring's built-in Problem Details only.** There is no catalogue of error types. This is by design.
 
 ## Time spent
