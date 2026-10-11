@@ -214,6 +214,7 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-01 Run and explore the service](docs/stories/US-01-run-and-explore.md) | `RunAndExploreE2ETest`, `ArchitectureTest` |
 | [US-02 Submit a pricing exception](docs/stories/US-02-submit-a-pricing-exception.md) | `SubmitRequestE2ETest` |
 | [US-03 Retry safely](docs/stories/US-03-retry-safely.md) | `RetrySafelyE2ETest` |
+| [US-04 Decide a request with advice](docs/stories/US-04-decide-a-request-with-advice.md) | `DecideRequestE2ETest`, `AdviceThresholdsE2ETest` |
 
 From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
 
