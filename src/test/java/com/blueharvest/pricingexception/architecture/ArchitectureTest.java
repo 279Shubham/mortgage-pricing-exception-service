@@ -1,34 +1,39 @@
 package com.blueharvest.pricingexception.architecture;
 
+import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
+import com.tngtech.archunit.core.domain.AccessTarget;
+import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
+import com.tngtech.archunit.core.domain.JavaAccess;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.util.List;
+import java.util.Set;
 
 @AnalyzeClasses(packages = "com.blueharvest.pricingexception", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 
+	private static final Set<String> SYSTEM_TIME_METHODS = Set.of("currentTimeMillis", "nanoTime");
+
+	private static final Set<String> SYSTEM_CLOCK_FACTORIES = Set.of("system", "systemUTC", "systemDefaultZone",
+			"tick", "tickMillis", "tickSeconds", "tickMinutes");
+
 	@ArchTest
 	static final ArchRule timeComesFromInjectedClock = noClasses()
-		.should().callMethod(Instant.class, "now")
-		.orShould().callMethod(LocalDateTime.class, "now")
-		.orShould().callMethod(OffsetDateTime.class, "now")
+		.should().accessTargetWhere(describe("a java.time now() without a Clock, or System time",
+				ArchitectureTest::readsSystemTime))
 		.because("time must come from the injected Clock so tests can control it");
 
 	@ArchTest
 	static final ArchRule systemClockOnlyInConfig = noClasses()
 		.that().resideOutsideOfPackage("..config..")
-		.should().callMethod(Clock.class, "systemUTC")
-		.orShould().callMethod(Clock.class, "systemDefaultZone")
-		.orShould().callMethod(Clock.class, "tickMillis", ZoneId.class)
+		.should().accessTargetWhere(describe("a system Clock factory", ArchitectureTest::createsSystemClock))
 		.because("the single system Clock bean is defined in the config package");
 
 	@ArchTest
@@ -43,5 +48,25 @@ class ArchitectureTest {
 		.whereLayer("Service").mayOnlyBeAccessedByLayers("Controller", "Web")
 		.whereLayer("Repository").mayOnlyBeAccessedByLayers("Service")
 		.because("controllers go through services, and only services use repositories");
+
+	private static boolean readsSystemTime(JavaAccess<?> access) {
+		AccessTarget target = access.getTarget();
+		boolean systemTime = target.getOwner().isEquivalentTo(System.class)
+				&& SYSTEM_TIME_METHODS.contains(target.getName());
+		return systemTime || isNowWithoutClock(target);
+	}
+
+	private static boolean isNowWithoutClock(AccessTarget target) {
+		return target instanceof CodeUnitAccessTarget codeUnit
+				&& target.getOwner().getPackageName().startsWith("java.time")
+				&& target.getName().equals("now")
+				&& !codeUnit.getRawParameterTypes().stream().map(JavaClass::getName).toList()
+					.equals(List.of(Clock.class.getName()));
+	}
+
+	private static boolean createsSystemClock(JavaAccess<?> access) {
+		AccessTarget target = access.getTarget();
+		return target.getOwner().isEquivalentTo(Clock.class) && SYSTEM_CLOCK_FACTORIES.contains(target.getName());
+	}
 
 }
