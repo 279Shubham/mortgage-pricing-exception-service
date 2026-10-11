@@ -5,6 +5,7 @@ import com.blueharvest.pricingexception.dto.ApprovedDiscountResponse;
 import com.blueharvest.pricingexception.dto.DeclineRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.ReviseRequestBody;
+import com.blueharvest.pricingexception.dto.RevisionResponse;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
 import com.blueharvest.pricingexception.model.Actor;
 import com.blueharvest.pricingexception.model.DecisionOutcome;
@@ -15,6 +16,7 @@ import com.blueharvest.pricingexception.service.IdempotencyScope;
 import com.blueharvest.pricingexception.service.IdempotencyService;
 import com.blueharvest.pricingexception.service.IdempotentResult;
 import com.blueharvest.pricingexception.service.PricingExceptionService;
+import com.blueharvest.pricingexception.service.RequestHistoryService;
 import com.blueharvest.pricingexception.service.ReviseCommand;
 import com.blueharvest.pricingexception.service.StoredResponse;
 import com.blueharvest.pricingexception.service.SubmitCommand;
@@ -43,12 +45,15 @@ class PricingExceptionController {
 
 	private final DecisionService decisions;
 
+	private final RequestHistoryService history;
+
 	private final IdempotencyService idempotency;
 
 	PricingExceptionController(PricingExceptionService service, DecisionService decisions,
-			IdempotencyService idempotency) {
+			RequestHistoryService history, IdempotencyService idempotency) {
 		this.service = service;
 		this.decisions = decisions;
+		this.history = history;
 		this.idempotency = idempotency;
 	}
 
@@ -70,6 +75,11 @@ class PricingExceptionController {
 	@GetMapping("/pricing-exceptions/{id}")
 	PricingExceptionResponse find(Actor caller, @PathVariable UUID id) {
 		return service.find(id);
+	}
+
+	@GetMapping("/pricing-exceptions/{id}/revisions")
+	List<RevisionResponse> revisions(Actor caller, @PathVariable UUID id) {
+		return history.revisions(id);
 	}
 
 	@GetMapping("/pricing-exceptions")
