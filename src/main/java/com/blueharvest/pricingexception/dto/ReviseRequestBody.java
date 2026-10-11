@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ReviseRequestBody(@NotNull Integer discountBps,
-		@NotBlank @Size(min = 10, max = 1000) @Pattern(regexp = FreeText.WITHOUT_CONTROL_CHARACTERS) String reason) {
+		@NotBlank @Size(min = 10, max = 1000) @Pattern(regexp = FreeText.WITHOUT_CONTROL_CHARACTERS,
+				message = FreeText.NO_CONTROL_CHARACTERS) String reason) {
 
 }

@@ -214,6 +214,7 @@ class RunAndExploreE2ETest extends E2ETestBase {
 		List<String> protectedEndpoints = handlerMapping.getHandlerMethods().keySet().stream()
 			.flatMap(RunAndExploreE2ETest::endpoints)
 			.filter(endpoint -> !OPEN_PATHS.contains(endpoint.split(" ")[1]))
+			.filter(endpoint -> !endpoint.matches("GET /(v3/api-docs|swagger-ui).*"))
 			.toList();
 		List<String> reachableWithoutCaller = protectedEndpoints.stream()
 			.filter(endpoint -> statusWithoutCaller(endpoint) != 401)

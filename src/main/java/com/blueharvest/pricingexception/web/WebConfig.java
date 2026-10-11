@@ -10,7 +10,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 class WebConfig implements WebMvcConfigurer {
 
-	private static final List<String> OPEN_PATHS = List.of("/users", "/error");
+	private static final List<String> OPEN_PATHS = List.of("/users", "/error", "/v3/api-docs/**", "/swagger-ui/**",
+			"/swagger-ui.html");
 
 	private final UserService users;
 
