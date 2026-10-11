@@ -94,6 +94,7 @@ curl -H 'X-User-Id: reviewer-ben' localhost:8080/applications
 ```bash
 curl -i localhost:8080/me
 # HTTP/1.1 401
+# WWW-Authenticate: X-User-Id realm="pricing-exception-service"
 # Content-Type: application/problem+json
 #
 # {"detail":"Missing or unknown X-User-Id","instance":"/me","status":401,"title":"Unauthorized"}

@@ -63,6 +63,7 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.when().get("/me")
 			.then().statusCode(401)
 			.contentType("application/problem+json")
+			.header("WWW-Authenticate", equalTo("X-User-Id realm=\"pricing-exception-service\""))
 			.body("status", equalTo(401))
 			.body("title", equalTo("Unauthorized"))
 			.body("detail", equalTo("Missing or unknown X-User-Id"))
