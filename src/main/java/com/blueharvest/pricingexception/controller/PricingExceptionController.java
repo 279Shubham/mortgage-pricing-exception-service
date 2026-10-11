@@ -1,6 +1,7 @@
 package com.blueharvest.pricingexception.controller;
 
 import com.blueharvest.pricingexception.dto.ApproveRequestBody;
+import com.blueharvest.pricingexception.dto.ApprovedDiscountResponse;
 import com.blueharvest.pricingexception.dto.DeclineRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
@@ -55,6 +56,11 @@ class PricingExceptionController {
 		IdempotencyScope scope = new IdempotencyScope(caller.id(),
 				"POST /applications/" + applicationId + "/pricing-exceptions", idempotencyKey);
 		return toResponseEntity(idempotency.execute(scope, command, () -> created(service.submit(caller, command))));
+	}
+
+	@GetMapping("/applications/{applicationId}/approved-discounts")
+	List<ApprovedDiscountResponse> approvedDiscounts(Actor caller, @PathVariable String applicationId) {
+		return service.approvedDiscounts(applicationId);
 	}
 
 	@GetMapping("/pricing-exceptions/{id}")

@@ -13,10 +13,11 @@ As the mortgage application process, I want to read the effective approved disco
 
 End-to-end tests: `ApprovedDiscountE2ETest`. Every test name starts with the criterion it proves.
 
-No test exists yet. A criterion gets its row in this table when its tests are written.
+A criterion gets its row in this table when its tests pass. AC-2, AC-3 and AC-4 have no test yet.
 
 | Criterion | Proved by |
 |-----------|-----------|
+| AC-1 | `the application process reads the latest approval for an application` |
 
 ## Plan
 

@@ -1,5 +1,6 @@
 package com.blueharvest.pricingexception.service;
 
+import com.blueharvest.pricingexception.dto.ApprovedDiscountResponse;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.model.Actor;
 import com.blueharvest.pricingexception.model.Advice;
@@ -81,6 +82,21 @@ public class PricingExceptionService {
 	@Transactional(readOnly = true)
 	public List<PricingExceptionResponse> findByStatus(RequestStatus status) {
 		return requests.findByStatusOrderBySubmittedAtAsc(status).stream().map(this::withCurrentRevision).toList();
+	}
+
+	@Transactional(readOnly = true)
+	public List<ApprovedDiscountResponse> approvedDiscounts(String applicationId) {
+		return requests.findFirstByApplicationIdAndStatusOrderByDecidedAtDesc(applicationId, RequestStatus.APPROVED)
+			.map(this::withApprovedRevision)
+			.stream()
+			.toList();
+	}
+
+	private ApprovedDiscountResponse withApprovedRevision(PricingExceptionRequest request) {
+		RequestRevision approved = revisions
+			.findByRequestIdAndRevisionNumber(request.getId(), request.getDecidedRevision())
+			.orElseThrow();
+		return ApprovedDiscountResponse.from(request, approved);
 	}
 
 	private PricingExceptionResponse withCurrentRevision(PricingExceptionRequest request) {
