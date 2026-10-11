@@ -2,6 +2,7 @@ package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -11,8 +12,11 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class RunAndExploreE2ETest extends E2ETestBase {
 
@@ -86,6 +90,73 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.then().statusCode(401)
 			.contentType("application/problem+json")
 			.body("status", equalTo(401));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-3: anyone can list the six seeded users and their roles without X-User-Id")
+	void anyoneListsSeededUsersWithoutCallerIdentity() {
+		given()
+			.when().get("/users")
+			.then().statusCode(200)
+			.body("id", contains("application-process", "dual-erin", "reviewer-ben", "reviewer-dana", "rm-anna",
+					"rm-carl"))
+			.body("find { it.id == 'dual-erin' }.displayName", containsString("RM + Reviewer"))
+			.body("find { it.id == 'dual-erin' }.roles", contains("RM", "REVIEWER"))
+			.body("find { it.id == 'application-process' }.roles", contains("APPLICATION_PROCESS"));
+	}
+
+	@ParameterizedTest(name = "{0} -> {1}")
+	@CsvSource({
+		"rm-anna, RM",
+		"rm-carl, RM",
+		"reviewer-ben, REVIEWER",
+		"reviewer-dana, REVIEWER",
+		"dual-erin, RM|REVIEWER",
+		"application-process, APPLICATION_PROCESS"
+	})
+	@DisplayName("US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles")
+	void eachSeededCallerResolvesToExactlyItsRoles(String userId, String roles) {
+		given()
+			.header("X-User-Id", userId)
+			.when().get("/me")
+			.then().statusCode(200)
+			.body("id", equalTo(userId))
+			.body("roles", equalTo(Arrays.asList(roles.split("\\|"))));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-4: an unknown X-User-Id is a 401 Problem Details response")
+	void unknownCallerIsUnauthorizedProblem() {
+		given()
+			.header("X-User-Id", "nobody")
+			.when().get("/me")
+			.then().statusCode(401)
+			.contentType("application/problem+json")
+			.body("status", equalTo(401))
+			.body("detail", equalTo("Missing or unknown X-User-Id"));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-4: an empty X-User-Id is a 401 Problem Details response")
+	void emptyCallerIsUnauthorizedProblem() {
+		given()
+			.header("X-User-Id", "")
+			.when().get("/me")
+			.then().statusCode(401)
+			.contentType("application/problem+json")
+			.body("status", equalTo(401))
+			.body("detail", equalTo("Missing or unknown X-User-Id"));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-4: an unknown path is a 404 Problem Details response even without X-User-Id")
+	void unknownPathIsNotFoundProblemWithoutCallerIdentity() {
+		given()
+			.when().get("/no-such-path")
+			.then().statusCode(404)
+			.contentType("application/problem+json")
+			.body("status", equalTo(404))
+			.body("title", equalTo("Not Found"));
 	}
 
 }
