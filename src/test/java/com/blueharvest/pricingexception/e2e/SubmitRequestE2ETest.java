@@ -17,18 +17,24 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 class SubmitRequestE2ETest extends E2ETestBase {
 
 	private static final String VALID_REASON = "Retention offer matching a competitor quote";
 
 	private static final String VALID_BODY = body(25, VALID_REASON);
+
+	@Autowired
+	DataSource dataSource;
 
 	@Test
 	@DisplayName("US-02 AC-1: an RM submits a discount and gets 201 with a Location to the pending request")
@@ -228,6 +234,16 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.body("exception", nullValue());
 		submit("rm-carl", "MA-1002", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201);
+	}
+
+	@Test
+	@DisplayName("US-02 AC-4: an insert that fails for any reason but the one-pending rule is a 500, not a 409")
+	void failedInsertIsNotReportedAsPending() {
+		JdbcClient.create(dataSource)
+			.sql("ALTER TABLE pricing_exception_request ADD CONSTRAINT no_new_requests CHECK (status <> 'PENDING')")
+			.update();
+
+		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
 	}
 
 	@Test
