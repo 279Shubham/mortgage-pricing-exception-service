@@ -35,6 +35,9 @@ public class PricingExceptionRequest {
 	@Column(name = "submitted_at")
 	private Instant submittedAt;
 
+	@Column(name = "previous_request_id")
+	private UUID previousRequestId;
+
 	@Column(name = "decided_by")
 	private String decidedBy;
 
@@ -53,9 +56,11 @@ public class PricingExceptionRequest {
 	protected PricingExceptionRequest() {
 	}
 
-	public PricingExceptionRequest(String applicationId, String requestedBy, Instant submittedAt) {
+	public PricingExceptionRequest(String applicationId, String requestedBy, UUID previousRequestId,
+			Instant submittedAt) {
 		this.applicationId = applicationId;
 		this.requestedBy = requestedBy;
+		this.previousRequestId = previousRequestId;
 		this.submittedAt = submittedAt;
 		this.status = RequestStatus.PENDING;
 		this.currentRevision = 1;
@@ -83,6 +88,10 @@ public class PricingExceptionRequest {
 
 	public Instant getSubmittedAt() {
 		return submittedAt;
+	}
+
+	public UUID getPreviousRequestId() {
+		return previousRequestId;
 	}
 
 	public String getDecidedBy() {

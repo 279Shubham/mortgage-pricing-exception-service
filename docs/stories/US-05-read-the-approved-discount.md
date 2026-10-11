@@ -13,11 +13,12 @@ As the mortgage application process, I want to read the effective approved disco
 
 End-to-end tests: `ApprovedDiscountE2ETest`. Every test name starts with the criterion it proves.
 
-A criterion gets its row in this table when its tests pass. AC-2, AC-3 and AC-4 have no test yet.
-
 | Criterion | Proved by |
 |-----------|-----------|
-| AC-1 | `the application process reads the latest approval for an application` |
+| AC-1 | `the application process reads the latest approval for an application`<br>`any internal user reads the same approval` |
+| AC-2 | `an application without an approval gets an empty list` |
+| AC-3 | `a new request after an approval leaves it effective until the new one is approved` |
+| AC-4 | `a resubmit after a decline is a new request linked by previousRequestId` |
 
 ## Plan
 

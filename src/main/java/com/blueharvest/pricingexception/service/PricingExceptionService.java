@@ -63,8 +63,8 @@ public class PricingExceptionService {
 		MortgageApplication application = findApplication(command.applicationId());
 		requireValidDiscount(command.discountBps(), application);
 		Instant now = clock.instant();
-		PricingExceptionRequest request = insertPending(
-				new PricingExceptionRequest(application.getId(), caller.id(), now));
+		PricingExceptionRequest request = insertPending(new PricingExceptionRequest(application.getId(), caller.id(),
+				declinedPredecessorOf(application.getId()), now));
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
 		RequestRevision revision = revisions
 			.save(new RequestRevision(request.getId(), 1, command.discountBps(), command.reason(), advice, now));
@@ -123,6 +123,13 @@ public class PricingExceptionService {
 			throw new InvalidRequestException("discountBps must be between " + minBps + " and " + maxBps
 					+ " and below the standard rate of " + standardRateBps + " bps");
 		}
+	}
+
+	private UUID declinedPredecessorOf(String applicationId) {
+		return requests.findFirstByApplicationIdOrderBySubmittedAtDesc(applicationId)
+			.filter(latest -> latest.getStatus() == RequestStatus.DECLINED)
+			.map(PricingExceptionRequest::getId)
+			.orElse(null);
 	}
 
 	private PricingExceptionRequest insertPending(PricingExceptionRequest request) {

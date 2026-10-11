@@ -8,11 +8,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record PricingExceptionResponse(UUID id, String applicationId, RequestStatus status, String requestedBy,
-		Instant submittedAt, Revision currentRevision, Decision decision) {
+		Instant submittedAt, Revision currentRevision, Decision decision, UUID previousRequestId) {
 
 	public static PricingExceptionResponse from(PricingExceptionRequest request, RequestRevision revision) {
 		return new PricingExceptionResponse(request.getId(), request.getApplicationId(), request.getStatus(),
-				request.getRequestedBy(), request.getSubmittedAt(), Revision.from(revision), Decision.from(request));
+				request.getRequestedBy(), request.getSubmittedAt(), Revision.from(revision), Decision.from(request),
+				request.getPreviousRequestId());
 	}
 
 	public record Revision(int number, int discountBps, String reason, Advice advice, Instant createdAt) {
