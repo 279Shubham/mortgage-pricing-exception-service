@@ -1,0 +1,115 @@
+# US-02 Submit a pricing exception
+
+As a relationship manager, I want to submit a basis-point discount and a reason for an existing mortgage application and read it back, so that a reviewer can decide on it.
+
+## Acceptance criteria
+
+- **AC-1:** An RM submits a discount (bps) and reason for a seeded application and gets 201 with a `Location`. Any internal user who follows it sees status PENDING, revision 1, the requester and the submission time.
+- **AC-2:** Invalid submissions get a Problem Details error and create nothing. This covers an unknown application (404); a discount outside 1–200 bps or not below the standard rate (400); a non-integer such as `25.9` (400, rejected and never truncated); and a reason shorter than 10 characters (400).
+- **AC-3:** A caller without the RM role gets 403.
+- **AC-4:** A second pending request for the same application gets 409. Two racing submits still leave exactly one pending request (database backstop).
+
+## Plan
+
+The story was delivered in three thin slices, each one tested before the next started:
+
+1. **Submit and read back** (commit `189949d`). `POST /applications/{applicationId}/pricing-exceptions` and `GET /pricing-exceptions/{id}` go through the controller, `PricingExceptionService` and the Spring Data repositories. The request, its first revision and its `SUBMITTED` history event are written in the same transaction, with times taken from the injected clock.
+2. **Rejections as Problem Details** (failing tests `9fa5852`, then code `15b0583`). A caller without the RM role gets 403, an unknown application gets 404, and the discount and reason rules give 400. JSON input is strict: unknown fields, server-owned fields, decimals and numbers sent as strings are all refused.
+3. **One pending request per application** (failing tests `2821223`, then code `a7e7eac`). A unique constraint in the database enforces the rule, and the service turns a violation into a clean 409. A race test fires five submits at once.
+
+Product assumptions, in plain words: the discount is a whole number from 1 to 200 bps (configurable) and below the application's standard rate; the reason is 10 to 1000 characters; any known user may read any request; and an unknown application is a 404. The README lists them under Assumptions.
+
+## Review notes
+
+Code-review findings for this story, and how each was resolved, are appended here when the story closes.
+
+## Verification evidence
+
+All evidence below is real captured output from 2026-10-11.
+
+### (a) End-to-end tests, `./gradlew check --rerun-tasks` (commit `1f05524`)
+
+All 41 US-02 tests passed:
+
+```
+SubmitRequestE2ETest > US-02 AC-1: an RM submits a discount and gets 201 with a Location to the pending request PASSED
+SubmitRequestE2ETest > US-02 AC-1: the submission time comes from the injected clock PASSED
+SubmitRequestE2ETest > US-02 AC-4: five racing submits leave exactly one pending request PASSED
+SubmitRequestE2ETest > US-02 AC-1: an unknown request id is a 404 Problem Details response PASSED
+SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "1 bps with a 10-character reason" is accepted PASSED
+SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "200 bps with a 1000-character reason" is accepted PASSED
+SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "149 bps on MA-1006" is accepted PASSED
+SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "a reason of ten euro signs" is accepted PASSED
+SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-ben" gets 403 PASSED
+SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-dana" gets 403 PASSED
+SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "application-process" gets 403 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an unknown application is a 404 Problem Details response PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-anna" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-carl" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "reviewer-ben" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "dual-erin" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "application-process" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: a malformed request id is a 400 Problem Details response PASSED
+SubmitRequestE2ETest > US-02 AC-4: a second pending request for the same application gets 409 PASSED
+SubmitRequestE2ETest > US-02 AC-2: a rejected submission creates nothing PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 25.9" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 25.0" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps \"25\" as a string" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 99999999999" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 0" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps -5" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 201" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 150 on MA-1006 (its standard rate)" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "discountBps 151 on MA-1006" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a missing discountBps" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a null discountBps" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a missing reason" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a reason of ten spaces" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a 9-character reason" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a 1001-character reason" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "an unknown extra field" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a client-supplied requestedBy" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "a client-supplied status" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "an empty body" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-2: an invalid submission is rejected with 400 > US-02 AC-2: "malformed JSON" is rejected with 400 PASSED
+SubmitRequestE2ETest > US-02 AC-1: the submission time follows the injected clock when it moves on PASSED
+```
+
+The race test (AC-4) also passed on three back-to-back reruns when it was first written.
+
+### (b) `make test` in a container (commit `1f05524`)
+
+The whole suite (5 architecture rules, 18 US-01, 41 US-02 and 12 US-03 tests) passed inside `eclipse-temurin:21-jdk-noble`, after `pmdMain`:
+
+```
+#13 33.43 > Task :pmdMain
+#13 44.03 SubmitRequestE2ETest > US-02 AC-1: an RM submits a discount and gets 201 with a Location to the pending request PASSED
+#13 44.13 SubmitRequestE2ETest > US-02 AC-1: the submission time comes from the injected clock PASSED
+#13 44.13 SubmitRequestE2ETest > US-02 AC-4: five racing submits leave exactly one pending request PASSED
+...
+#13 45.53 BUILD SUCCESSFUL in 45s
+```
+
+### (c) Submit and read back on a running service (commit `1f05524`)
+
+`PORT=18083 ./gradlew bootRun` with JDK 21:
+
+```
+o.f.core.internal.command.DbMigrate      : Successfully applied 5 migrations to schema "public", now at version v5 (execution time 00:00.005s)
+c.b.p.PricingExceptionServiceApplication : Started PricingExceptionServiceApplication in 1.903 seconds (process running for 2.024)
+
+$ curl -i -X POST localhost:18083/applications/MA-1001/pricing-exceptions -H 'X-User-Id: rm-anna' \
+    -H 'Idempotency-Key: readme-demo-1' -H 'Content-Type: application/json' \
+    -d '{"discountBps":25,"reason":"Retention offer matching a competitor quote"}'
+HTTP/1.1 201
+Location: /pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
+Content-Type: application/json
+Content-Length: 297
+
+{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
+
+$ curl -H 'X-User-Id: reviewer-ben' localhost:18083/pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
+{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
+```
+
+The service was stopped after the calls.
