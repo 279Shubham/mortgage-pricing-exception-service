@@ -50,6 +50,7 @@ public class IdempotencyService {
 	private StoredResponse claimAndRun(IdempotencyScope scope, String fingerprint,
 			Supplier<IdempotentResult> action) {
 		Instant now = clock.instant();
+		records.deleteExpired(scope.userId(), scope.route(), scope.key(), now);
 		IdempotencyRecord claim = claim(
 				new IdempotencyRecord(scope.userId(), scope.route(), scope.key(), fingerprint, now.plus(ttl)));
 		IdempotentResult result = action.get();
