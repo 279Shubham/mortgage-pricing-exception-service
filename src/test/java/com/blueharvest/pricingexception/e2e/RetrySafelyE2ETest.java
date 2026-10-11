@@ -92,6 +92,18 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-03 AC-4: a key can be retried after a failed attempt")
+	void keyCanBeRetriedAfterFailedAttempt() {
+		String key = newIdempotencyKey();
+		submit("rm-anna", "MA-1001", key, body(500, VALID_REASON)).then().statusCode(400);
+		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+
+		String refusedKey = newIdempotencyKey();
+		submit("reviewer-ben", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
+		submit("reviewer-ben", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
+	}
+
+	@Test
 	@DisplayName("US-03 AC-4: a key claim that fails for any reason but a duplicate is a 500, not an in-flight 409")
 	void failedClaimIsNotReportedAsInFlight() {
 		JdbcClient.create(dataSource)
