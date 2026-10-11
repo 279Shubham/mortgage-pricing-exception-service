@@ -1,9 +1,9 @@
 INSERT INTO app_user (id, display_name) VALUES
-    ('rm-anna', 'Anna (Relationship Manager)'),
-    ('rm-carl', 'Carl (Relationship Manager)'),
-    ('reviewer-ben', 'Ben (Reviewer)'),
-    ('reviewer-dana', 'Dana (Reviewer)'),
-    ('dual-erin', 'Erin (RM + Reviewer, four-eyes demo)'),
+    ('rm-anna', 'Lana (Relationship Manager)'),
+    ('rm-carl', 'Chloe (Relationship Manager)'),
+    ('reviewer-ben', 'Lex Luthor (Reviewer)'),
+    ('reviewer-dana', 'Jonathan Kent (Reviewer)'),
+    ('dual-erin', 'Clark Kent (RM + Reviewer, four-eyes demo)'),
     ('application-process', 'Mortgage application process (service user)');
 
 INSERT INTO app_user_role (user_id, role) VALUES

@@ -100,7 +100,7 @@ BUILD SUCCESSFUL in 39s
 
 ```
 $ curl -H 'X-User-Id: rm-anna' http://localhost:18080/me
-{"id":"rm-anna","displayName":"Anna (Relationship Manager)","roles":["RM"]}
+{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 Container log: `Started PricingExceptionServiceApplication in 1.68 seconds`. `make stop` stopped and removed the container. The runtime image runs as `uid=10001(app)`, and `/app` holds only `application.jar` and `lib`.
@@ -113,7 +113,7 @@ Container log: `Started PricingExceptionServiceApplication in 1.68 seconds`. `ma
 $ docker exec pes-amd64 uname -m
 x86_64
 $ curl -H 'X-User-Id: rm-anna' http://localhost:18082/me
-{"id":"rm-anna","displayName":"Anna (Relationship Manager)","roles":["RM"]}
+{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 Container log: `Started PricingExceptionServiceApplication in 19.761 seconds` (emulated).
@@ -130,7 +130,7 @@ c.b.p.PricingExceptionServiceApplication : Started PricingExceptionServiceApplic
 $ curl http://localhost:18081/actuator/health
 {"groups":["liveness","readiness"],"status":"UP"}
 $ curl -H 'X-User-Id: rm-anna' http://localhost:18081/me
-{"id":"rm-anna","displayName":"Anna (Relationship Manager)","roles":["RM"]}
+{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 The same smokes also passed earlier in the story, when the health endpoint and `/me` were first built.

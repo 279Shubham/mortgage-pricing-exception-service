@@ -74,14 +74,14 @@ curl localhost:8080/actuator/health
 ```bash
 curl localhost:8080/users
 # [{"id":"application-process","displayName":"Mortgage application process (service user)","roles":["APPLICATION_PROCESS"]},
-#  {"id":"dual-erin","displayName":"Erin (RM + Reviewer, four-eyes demo)","roles":["RM","REVIEWER"]}, ...]
+#  {"id":"dual-erin","displayName":"Clark Kent (RM + Reviewer, four-eyes demo)","roles":["RM","REVIEWER"]}, ...]
 ```
 
 **Who am I:**
 
 ```bash
 curl -H 'X-User-Id: rm-anna' localhost:8080/me
-# {"id":"rm-anna","displayName":"Anna (Relationship Manager)","roles":["RM"]}
+# {"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 **Mortgage applications:**

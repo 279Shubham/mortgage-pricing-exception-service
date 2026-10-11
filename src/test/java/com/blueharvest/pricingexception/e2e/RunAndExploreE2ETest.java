@@ -69,7 +69,7 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.when().get("/me")
 			.then().statusCode(200)
 			.body("id", equalTo("rm-anna"))
-			.body("displayName", equalTo("Anna (Relationship Manager)"))
+			.body("displayName", equalTo("Lana (Relationship Manager)"))
 			.body("roles", contains("RM"));
 	}
 
