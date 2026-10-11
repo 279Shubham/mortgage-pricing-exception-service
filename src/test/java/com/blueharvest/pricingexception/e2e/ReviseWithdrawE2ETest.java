@@ -2,9 +2,11 @@ package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
+import io.restassured.response.Response;
 import io.restassured.response.ValidatableResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -21,6 +23,10 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	private static final String VALID_REASON = "Retention offer matching a competitor quote";
 
 	private static final String REVISED_REASON = "Customer accepted a smaller discount after the call";
+
+	private static final String REVISION_ONE = "{\"revisionNumber\":1}";
+
+	private static final String DECLINE_BODY = "{\"revisionNumber\":1,\"note\":\"Discount not justified by the quote\"}";
 
 	@Autowired
 	DataSource dataSource;
@@ -59,6 +65,86 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 		assertThat(revised).containsEntry("revision_number", 2).containsEntry("actor_id", "rm-anna");
 		assertThat(((OffsetDateTime) revised.get("occurred_at")).toInstant())
 			.isEqualTo(MutableClock.START.plus(Duration.ofMinutes(10)));
+	}
+
+	@Test
+	@DisplayName("US-06 AC-3: the requester withdraws a pending request")
+	void requesterWithdrawsPendingRequest() {
+		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		CLOCK.advance(Duration.ofMinutes(10));
+
+		withdraw("rm-anna", id, newIdempotencyKey())
+			.then().statusCode(200)
+			.header("Location", nullValue())
+			.body("id", equalTo(id))
+			.body("status", equalTo("WITHDRAWN"))
+			.body("decision", nullValue())
+			.body("currentRevision.number", equalTo(1));
+
+		read(id)
+			.body("status", equalTo("WITHDRAWN"))
+			.body("decision", nullValue())
+			.body("currentRevision.number", equalTo(1));
+
+		assertThat(eventTypes()).containsExactly("SUBMITTED", "WITHDRAWN");
+		Map<String, Object> withdrawn = historyEvents("WITHDRAWN").get(0);
+		assertThat(withdrawn.get("request_id")).hasToString(id);
+		assertThat(withdrawn).containsEntry("revision_number", 1).containsEntry("actor_id", "rm-anna");
+		assertThat(((OffsetDateTime) withdrawn.get("occurred_at")).toInstant())
+			.isEqualTo(MutableClock.START.plus(Duration.ofMinutes(10)));
+	}
+
+	@Test
+	@DisplayName("US-06 AC-3: a withdrawn request cannot be decided or revised, and the application accepts a new request")
+	void withdrawnRequestIsClosedAndFreesTheApplication() {
+		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		submit("rm-carl", "MA-1001", newIdempotencyKey(), body(30, VALID_REASON)).then().statusCode(409);
+		withdraw("rm-anna", id, newIdempotencyKey()).then().statusCode(200);
+
+		String alreadyWithdrawn = "Request " + id + " is already WITHDRAWN";
+		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
+		decide("reviewer-ben", id, "decline", newIdempotencyKey(), DECLINE_BODY)
+			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
+		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON))
+			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
+		withdraw("rm-anna", id, newIdempotencyKey())
+			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
+
+		CLOCK.advance(Duration.ofMinutes(1));
+		String newId = submit("rm-anna", "MA-1001", newIdempotencyKey(), body(25, VALID_REASON))
+			.then().statusCode(201)
+			.body("status", equalTo("PENDING"))
+			.body("previousRequestId", nullValue())
+			.extract().path("id");
+
+		assertThat(newId).isNotEqualTo(id);
+		list("PENDING").body("id", contains(newId));
+		list("WITHDRAWN").body("id", contains(id));
+	}
+
+	@Test
+	@DisplayName("US-06 AC-6: a retried withdraw replays the original response and records one withdrawal")
+	void retriedWithdrawReplaysOriginalResponse() {
+		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		String key = newIdempotencyKey();
+		Response original = withdraw("rm-anna", id, key);
+		original.then().statusCode(200);
+		CLOCK.advance(Duration.ofMinutes(5));
+
+		Response retry = withdraw("rm-anna", id, key);
+
+		retry.then().statusCode(200);
+		assertThat(retry.asString()).isEqualTo(original.asString());
+		assertThat(eventTypes()).containsExactly("SUBMITTED", "WITHDRAWN");
+	}
+
+	private static ValidatableResponse list(String status) {
+		return given()
+			.header("X-User-Id", "reviewer-ben")
+			.queryParam("status", status)
+			.when().get("/pricing-exceptions")
+			.then().statusCode(200);
 	}
 
 	private static String submitted(String userId, String applicationId, int discountBps, String reason) {

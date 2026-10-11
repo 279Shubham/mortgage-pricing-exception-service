@@ -65,6 +65,13 @@ abstract class E2ETestBase {
 			.when().post("/pricing-exceptions/{id}/revise", requestId);
 	}
 
+	static Response withdraw(String userId, String requestId, String idempotencyKey) {
+		return given()
+			.header("X-User-Id", userId)
+			.header("Idempotency-Key", idempotencyKey)
+			.when().post("/pricing-exceptions/{id}/withdraw", requestId);
+	}
+
 	void reviseInDatabase(String requestId, int revisionNumber, int discountBps) {
 		JdbcClient database = JdbcClient.create(flyway.getConfiguration().getDataSource());
 		database
