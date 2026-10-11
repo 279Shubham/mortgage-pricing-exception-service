@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing exceptions</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1c2330; }
+  header { background: #1c2330; color: #fff; padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; flex: 1; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  section { background: #fff; border: 1px solid #d9dde3; border-radius: 6px; padding: 14px 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  label { display: block; margin: 6px 0 2px; font-size: 13px; color: #556; }
+  input, select, textarea, button { font: inherit; padding: 5px 8px; border: 1px solid #b8bfc9; border-radius: 4px; }
+  textarea { width: 100%; box-sizing: border-box; }
+  button { background: #fff; cursor: pointer; }
+  button.primary { background: #1f5fbf; border-color: #1f5fbf; color: #fff; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .card { border: 1px solid #d9dde3; border-radius: 6px; padding: 10px 12px; margin-top: 10px; }
+  .card .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .muted { color: #667; font-size: 13px; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; background: #e6e9ee; }
+  .tag.REVIEW_CAREFULLY { background: #fde9c8; }
+  .tag.APPROVE, .tag.APPROVED { background: #d5f0d9; }
+  .tag.DECLINED { background: #f8d7d7; }
+  #message { padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; white-space: pre-wrap; }
+  #message.ok { background: #d5f0d9; }
+  #message.error { background: #f8d7d7; }
+  #message:empty { display: none; }
+  ol.history { margin: 8px 0 0; padding-left: 20px; }
+  ol.history li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mortgage pricing exceptions</h1>
+  <label for="user" style="color:#fff;margin:0">Acting as</label>
+  <select id="user"></select>
+</header>
+<main>
+  <div id="message"></div>
+
+  <section>
+    <h2>Submit a request (relationship manager)</h2>
+    <div class="row">
+      <div><label for="application">Application</label><select id="application"></select></div>
+      <div><label for="discount">Discount (bps)</label><input id="discount" type="number" value="25" style="width:90px"></div>
+      <button id="approved">Show approved discount</button>
+    </div>
+    <label for="reason">Reason</label>
+    <textarea id="reason" rows="2">Retention offer matching a competitor quote</textarea>
+    <div class="actions" style="margin-top:8px"><button class="primary" id="submit">Submit</button></div>
+  </section>
+
+  <section>
+    <h2>Requests</h2>
+    <div class="row">
+      <div><label for="status">Status</label>
+        <select id="status">
+          <option>PENDING</option><option>APPROVED</option><option>DECLINED</option><option>WITHDRAWN</option>
+        </select></div>
+      <button id="refresh">Refresh</button>
+    </div>
+    <div id="requests"></div>
+  </section>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function el(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+
+  function show(text, kind) {
+    $('message').textContent = text;
+    $('message').className = kind;
+  }
+
+  async function call(method, path, body) {
+    const headers = { 'X-User-Id': $('user').value };
+    if (method === 'POST') headers['Idempotency-Key'] = crypto.randomUUID();
+    if (body) headers['Content-Type'] = 'application/json';
+    const response = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      const detail = data && (data.detail || data.title) || text;
+      throw new Error(method + ' ' + path + ' -> ' + response.status + '\n' + detail);
+    }
+    return data;
+  }
+
+  async function act(description, action) {
+    try {
+      await action();
+      show(description, 'ok');
+    } catch (failure) {
+      show(failure.message, 'error');
+    }
+    await loadRequests();
+  }
+
+  function button(text, onClick, className) {
+    const node = el('button', text, className);
+    node.addEventListener('click', onClick);
+    return node;
+  }
+
+  function requestCard(request) {
+    const revision = request.currentRevision;
+    const card = el('div', undefined, 'card');
+    const title = el('div');
+    title.append(el('strong', request.applicationId + ' - ' + revision.discountBps + ' bps'), ' ',
+        el('span', request.status, 'tag ' + request.status), ' ',
+        el('span', 'advice: ' + revision.advice.recommendation, 'tag ' + revision.advice.recommendation));
+    card.append(title,
+        el('div', revision.reason),
+        el('div', revision.advice.rationale, 'muted'),
+        el('div', 'Requested by ' + request.requestedBy + ', revision ' + revision.number + ', id ' + request.id, 'muted'));
+    if (request.decision) {
+      const note = request.decision.note ? ' - note: ' + request.decision.note : '';
+      card.append(el('div', 'Decided by ' + request.decision.decidedBy + ' on revision '
+          + request.decision.revisionNumber + note, 'muted'));
+    }
+    if (request.previousRequestId) {
+      card.append(el('div', 'Follows declined request ' + request.previousRequestId, 'muted'));
+    }
+    const actions = el('div', undefined, 'actions');
+    const history = el('div');
+    const base = '/pricing-exceptions/' + request.id;
+    if (request.status === 'PENDING') {
+      actions.append(
+          button('Approve', () => act('Approved revision ' + revision.number,
+              () => call('POST', base + '/approve', { revisionNumber: revision.number })), 'primary'),
+          button('Decline', () => decline(base, revision.number)),
+          button('Revise', () => revise(base, revision)),
+          button('Withdraw', () => act('Withdrawn', () => call('POST', base + '/withdraw'))));
+    }
+    actions.append(button('History', () => showHistory(base, history)));
+    card.append(actions, history);
+    return card;
+  }
+
+  function decline(base, revisionNumber) {
+    const note = prompt('Note for the requester (required)');
+    if (note === null) return;
+    act('Declined revision ' + revisionNumber, () => call('POST', base + '/decline', { revisionNumber, note }));
+  }
+
+  function revise(base, revision) {
+    const discount = prompt('New discount in bps', revision.discountBps);
+    if (discount === null) return;
+    const reason = prompt('New reason', revision.reason);
+    if (reason === null) return;
+    act('Revised', () => call('POST', base + '/revise', { discountBps: Number(discount), reason }));
+  }
+
+  async function showHistory(base, target) {
+    try {
+      const history = await call('GET', base + '/history');
+      const list = el('ol', undefined, 'history');
+      for (const event of history.events) {
+        const note = event.note ? ' - note: ' + event.note : '';
+        const item = el('li');
+        item.append(el('strong', event.type), ' by ' + event.actorId + ' at ' + event.occurredAt,
+            el('div', 'Revision ' + event.revisionNumber + ': ' + event.discountBps + ' bps, advice '
+                + event.advice.recommendation + note, 'muted'));
+        list.append(item);
+      }
+      target.replaceChildren(list);
+    } catch (failure) {
+      show(failure.message, 'error');
+    }
+  }
+
+  async function loadRequests() {
+    try {
+      const requests = await call('GET', '/pricing-exceptions?status=' + $('status').value);
+      const cards = requests.map(requestCard);
+      $('requests').replaceChildren(...(cards.length ? cards : [el('p', 'No requests in this status.', 'muted')]));
+    } catch (failure) {
+      show(failure.message, 'error');
+    }
+  }
+
+  async function showApprovedDiscount() {
+    const applicationId = $('application').value;
+    try {
+      const approved = await call('GET', '/applications/' + applicationId + '/approved-discounts');
+      show(approved.length
+          ? applicationId + ': ' + approved[0].discountBps + ' bps approved by ' + approved[0].approvedBy
+              + ' (request ' + approved[0].requestId + ', revision ' + approved[0].revision + ')'
+          : applicationId + ': no approved discount', 'ok');
+    } catch (failure) {
+      show(failure.message, 'error');
+    }
+  }
+
+  async function start() {
+    const users = await (await fetch('/users')).json();
+    $('user').replaceChildren(...users.map((user) => {
+      const option = el('option', user.displayName + ' [' + user.roles.join(', ') + ']');
+      option.value = user.id;
+      return option;
+    }));
+    const applications = await call('GET', '/applications');
+    $('application').replaceChildren(...applications.map((application) => {
+      const option = el('option', application.id + ' - ' + application.borrowerLabel
+          + ' (standard rate ' + application.standardRateBps + ' bps)');
+      option.value = application.id;
+      return option;
+    }));
+    $('user').addEventListener('change', loadRequests);
+    $('status').addEventListener('change', loadRequests);
+    $('refresh').addEventListener('click', loadRequests);
+    $('approved').addEventListener('click', showApprovedDiscount);
+    $('submit').addEventListener('click', () => act('Submitted', () => call('POST',
+        '/applications/' + $('application').value + '/pricing-exceptions',
+        { discountBps: Number($('discount').value), reason: $('reason').value })));
+    await loadRequests();
+  }
+
+  start().catch((failure) => show(failure.message, 'error'));
+</script>
+</body>
+</html>
