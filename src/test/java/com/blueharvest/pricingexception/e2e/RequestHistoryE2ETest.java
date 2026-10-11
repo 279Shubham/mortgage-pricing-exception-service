@@ -27,18 +27,18 @@ class RequestHistoryE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-07 AC-1: the history lists every event in order with its revision, actor and time")
 	void historyListsEveryEventInOrder() {
-		String id = submitted("rm-anna", "MA-1001", 75);
+		String id = submitted("rm-lana", "MA-1001", 75);
 		CLOCK.advance(Duration.ofMinutes(10));
-		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
+		revise("rm-lana", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
 		CLOCK.advance(Duration.ofMinutes(10));
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}").then().statusCode(200);
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}").then().statusCode(200);
 
-		history("rm-carl", id).statusCode(200)
+		history("rm-chloe", id).statusCode(200)
 			.body("requestId", equalTo(id))
 			.body("applicationId", equalTo("MA-1001"))
 			.body("events.type", contains("SUBMITTED", "REVISED", "APPROVED"))
 			.body("events.revisionNumber", contains(1, 2, 2))
-			.body("events.actorId", contains("rm-anna", "rm-anna", "reviewer-ben"))
+			.body("events.actorId", contains("rm-lana", "rm-lana", "reviewer-lex"))
 			.body("events.occurredAt",
 					contains("2026-01-15T09:00:00Z", "2026-01-15T09:10:00Z", "2026-01-15T09:20:00Z"));
 	}
@@ -46,11 +46,11 @@ class RequestHistoryE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-07 AC-2: each event shows the discount, reason and advice of its revision")
 	void eventsShowTheAdviceTheReviewerSaw() {
-		String id = submitted("rm-anna", "MA-1001", 75);
-		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}").then().statusCode(200);
+		String id = submitted("rm-lana", "MA-1001", 75);
+		revise("rm-lana", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}").then().statusCode(200);
 
-		history("reviewer-dana", id).statusCode(200)
+		history("reviewer-jonathan", id).statusCode(200)
 			.body("events.discountBps", contains(75, 40, 40))
 			.body("events.reason", contains(VALID_REASON, REVISED_REASON, REVISED_REASON))
 			.body("events.advice.recommendation", contains("REVIEW_CAREFULLY", "APPROVE", "APPROVE"))
@@ -60,10 +60,10 @@ class RequestHistoryE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-07 AC-2: a decline shows the reviewer's note next to the advice")
 	void declineShowsTheNote() {
-		String id = submitted("rm-anna", "MA-1001", 75);
+		String id = submitted("rm-lana", "MA-1001", 75);
 		decline(id);
 
-		history("rm-anna", id).statusCode(200)
+		history("rm-lana", id).statusCode(200)
 			.body("status", equalTo("DECLINED"))
 			.body("events.type", contains("SUBMITTED", "DECLINED"))
 			.body("events[0].note", nullValue())
@@ -74,14 +74,14 @@ class RequestHistoryE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-07 AC-3: the history shows the status and the earlier declined request")
 	void historyShowsStatusAndPredecessor() {
-		String declined = submitted("rm-anna", "MA-1001", 75);
+		String declined = submitted("rm-lana", "MA-1001", 75);
 		decline(declined);
 		CLOCK.advance(Duration.ofMinutes(10));
-		String next = submitted("rm-anna", "MA-1001", 40);
-		withdraw("rm-anna", next, newIdempotencyKey()).then().statusCode(200);
+		String next = submitted("rm-lana", "MA-1001", 40);
+		withdraw("rm-lana", next, newIdempotencyKey()).then().statusCode(200);
 
-		history("reviewer-ben", declined).statusCode(200).body("previousRequestId", nullValue());
-		history("reviewer-ben", next).statusCode(200)
+		history("reviewer-lex", declined).statusCode(200).body("previousRequestId", nullValue());
+		history("reviewer-lex", next).statusCode(200)
 			.body("status", equalTo("WITHDRAWN"))
 			.body("previousRequestId", equalTo(declined))
 			.body("events.type", contains("SUBMITTED", "WITHDRAWN"));
@@ -90,24 +90,24 @@ class RequestHistoryE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-07 AC-4: the history of an unknown request gets 404")
 	void unknownRequestGets404() {
-		history("rm-anna", UUID.randomUUID().toString()).statusCode(404);
+		history("rm-lana", UUID.randomUUID().toString()).statusCode(404);
 	}
 
 	@Test
 	@DisplayName("US-07 AC-5: each stored event is published as a log line, and a refused call publishes nothing")
 	void eventsArePublishedAfterCommit(CapturedOutput output) {
-		String id = submitted("rm-anna", "MA-1001", 75);
-		revise("rm-carl", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(403);
-		withdraw("rm-anna", id, newIdempotencyKey()).then().statusCode(200);
+		String id = submitted("rm-lana", "MA-1001", 75);
+		revise("rm-chloe", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(403);
+		withdraw("rm-lana", id, newIdempotencyKey()).then().statusCode(200);
 
 		assertThat(output.getOut())
-			.contains("Request event SUBMITTED on request " + id + " revision 1 by rm-anna at 2026-01-15T09:00:00Z")
-			.contains("Request event WITHDRAWN on request " + id + " revision 1 by rm-anna at 2026-01-15T09:00:00Z")
+			.contains("Request event SUBMITTED on request " + id + " revision 1 by rm-lana at 2026-01-15T09:00:00Z")
+			.contains("Request event WITHDRAWN on request " + id + " revision 1 by rm-lana at 2026-01-15T09:00:00Z")
 			.doesNotContain("Request event REVISED");
 	}
 
 	private static void decline(String id) {
-		decide("reviewer-ben", id, "decline", newIdempotencyKey(),
+		decide("reviewer-lex", id, "decline", newIdempotencyKey(),
 				"{\"revisionNumber\":1,\"note\":\"" + DECLINE_NOTE + "\"}")
 			.then().statusCode(200);
 	}

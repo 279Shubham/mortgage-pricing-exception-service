@@ -1,18 +1,18 @@
 INSERT INTO app_user (id, display_name) VALUES
-    ('rm-anna', 'Lana (Relationship Manager)'),
-    ('rm-carl', 'Chloe (Relationship Manager)'),
-    ('reviewer-ben', 'Lex Luthor (Reviewer)'),
-    ('reviewer-dana', 'Jonathan Kent (Reviewer)'),
-    ('dual-erin', 'Clark Kent (RM + Reviewer, four-eyes demo)'),
+    ('rm-lana', 'Lana (Relationship Manager)'),
+    ('rm-chloe', 'Chloe (Relationship Manager)'),
+    ('reviewer-lex', 'Lex Luthor (Reviewer)'),
+    ('reviewer-jonathan', 'Jonathan Kent (Reviewer)'),
+    ('dual-clark', 'Clark Kent (RM + Reviewer, four-eyes demo)'),
     ('application-process', 'Mortgage application process (service user)');
 
 INSERT INTO app_user_role (user_id, role) VALUES
-    ('rm-anna', 'RM'),
-    ('rm-carl', 'RM'),
-    ('reviewer-ben', 'REVIEWER'),
-    ('reviewer-dana', 'REVIEWER'),
-    ('dual-erin', 'RM'),
-    ('dual-erin', 'REVIEWER'),
+    ('rm-lana', 'RM'),
+    ('rm-chloe', 'RM'),
+    ('reviewer-lex', 'REVIEWER'),
+    ('reviewer-jonathan', 'REVIEWER'),
+    ('dual-clark', 'RM'),
+    ('dual-clark', 'REVIEWER'),
     ('application-process', 'APPLICATION_PROCESS');
 
 INSERT INTO mortgage_application (id, borrower_label, standard_rate_bps) VALUES

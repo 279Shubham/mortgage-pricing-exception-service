@@ -65,10 +65,10 @@ class RunAndExploreE2ETest extends E2ETestBase {
 	@DisplayName("US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me")
 	void seededCallerResolvesOnMe() {
 		given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get("/me")
 			.then().statusCode(200)
-			.body("id", equalTo("rm-anna"))
+			.body("id", equalTo("rm-lana"))
 			.body("displayName", equalTo("Lana (Relationship Manager)"))
 			.body("roles", contains("RM"));
 	}
@@ -93,7 +93,7 @@ class RunAndExploreE2ETest extends E2ETestBase {
 	@DisplayName("US-01 AC-3: a known caller lists the six fictional seeded applications with integer standard rates in bps")
 	void knownCallerListsSeededApplications() {
 		given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.when().get("/applications")
 			.then().statusCode(200)
 			.body("id", contains("MA-1001", "MA-1002", "MA-1003", "MA-1004", "MA-1005", "MA-1006"))
@@ -106,7 +106,7 @@ class RunAndExploreE2ETest extends E2ETestBase {
 	@DisplayName("US-01 AC-3: exactly one seeded application has a standard rate below the 200 bps discount cap")
 	void exactlyOneSeededApplicationIsBelowTheDiscountCap() {
 		given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.when().get("/applications")
 			.then().statusCode(200)
 			.body("findAll { it.standardRateBps < 200 }.id", contains("MA-1006"))
@@ -131,20 +131,20 @@ class RunAndExploreE2ETest extends E2ETestBase {
 		given()
 			.when().get("/users")
 			.then().statusCode(200)
-			.body("id", contains("application-process", "dual-erin", "reviewer-ben", "reviewer-dana", "rm-anna",
-					"rm-carl"))
-			.body("find { it.id == 'dual-erin' }.displayName", containsString("RM + Reviewer"))
-			.body("find { it.id == 'dual-erin' }.roles", contains("RM", "REVIEWER"))
+			.body("id", contains("application-process", "dual-clark", "reviewer-jonathan", "reviewer-lex", "rm-chloe",
+					"rm-lana"))
+			.body("find { it.id == 'dual-clark' }.displayName", containsString("RM + Reviewer"))
+			.body("find { it.id == 'dual-clark' }.roles", contains("RM", "REVIEWER"))
 			.body("find { it.id == 'application-process' }.roles", contains("APPLICATION_PROCESS"));
 	}
 
 	@ParameterizedTest(name = "{0} -> {1}")
 	@CsvSource({
-		"rm-anna, RM",
-		"rm-carl, RM",
-		"reviewer-ben, REVIEWER",
-		"reviewer-dana, REVIEWER",
-		"dual-erin, RM|REVIEWER",
+		"rm-lana, RM",
+		"rm-chloe, RM",
+		"reviewer-lex, REVIEWER",
+		"reviewer-jonathan, REVIEWER",
+		"dual-clark, RM|REVIEWER",
 		"application-process, APPLICATION_PROCESS"
 	})
 	@DisplayName("US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles")

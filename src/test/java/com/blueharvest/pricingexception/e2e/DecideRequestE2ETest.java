@@ -42,21 +42,21 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-3: a reviewer approves a pending request by stating the revision reviewed")
 	void reviewerApprovesPendingRequest() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		CLOCK.advance(Duration.ofHours(1));
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), REVISION_ONE)
 			.then().statusCode(200)
 			.header("Location", nullValue())
 			.body("id", equalTo(id))
 			.body("status", equalTo("APPROVED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("decision.decidedAt", equalTo("2026-01-15T10:00:00Z"))
 			.body("decision.revisionNumber", equalTo(1));
 
 		read(id)
 			.body("status", equalTo("APPROVED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("decision.decidedAt", equalTo("2026-01-15T10:00:00Z"))
 			.body("decision.revisionNumber", equalTo(1));
 
@@ -64,7 +64,7 @@ class DecideRequestE2ETest extends E2ETestBase {
 		assertThat(approvals).hasSize(1);
 		Map<String, Object> approval = approvals.get(0);
 		assertThat(approval.get("request_id")).hasToString(id);
-		assertThat(approval).containsEntry("revision_number", 1).containsEntry("actor_id", "reviewer-ben");
+		assertThat(approval).containsEntry("revision_number", 1).containsEntry("actor_id", "reviewer-lex");
 		assertThat(((OffsetDateTime) approval.get("occurred_at")).toInstant())
 			.isEqualTo(MutableClock.START.plus(Duration.ofHours(1)));
 	}
@@ -72,12 +72,12 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-3: an approve that does not state the revision gets 400")
 	void approveWithoutRevisionIsBadRequest() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{}")
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{}")
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":\"1\"}")
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":\"1\"}")
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
 
@@ -87,13 +87,13 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-3: a revision number that is not the current revision gets 409")
 	void staleRevisionNumberIsConflict() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
 			.then().statusCode(409)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Revision 2 is not the current revision 1"));
-		decide("reviewer-ben", id, "decline", newIdempotencyKey(),
+		decide("reviewer-lex", id, "decline", newIdempotencyKey(),
 				"{\"revisionNumber\":0,\"note\":\"" + DECLINE_NOTE + "\"}")
 			.then().statusCode(409)
 			.contentType(PROBLEM_JSON)
@@ -105,16 +105,16 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-3: an approval of a revision the request has moved on from gets 409")
 	void approvalOfSupersededRevisionIsConflict() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		reviseInDatabase(id, 2, 60);
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), REVISION_ONE)
 			.then().statusCode(409)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Revision 1 is not the current revision 2"));
 		assertStillPendingAndUndecided(id);
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
 			.then().statusCode(200)
 			.body("status", equalTo("APPROVED"))
 			.body("decision.revisionNumber", equalTo(2))
@@ -126,11 +126,11 @@ class DecideRequestE2ETest extends E2ETestBase {
 	void unknownRequestIsNotFound() {
 		UUID unknown = UUID.randomUUID();
 
-		approve("reviewer-ben", unknown.toString())
+		approve("reviewer-lex", unknown.toString())
 			.then().statusCode(404)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Unknown pricing exception request " + unknown));
-		decline("reviewer-ben", unknown.toString())
+		decline("reviewer-lex", unknown.toString())
 			.then().statusCode(404)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Unknown pricing exception request " + unknown));
@@ -139,43 +139,43 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-4: a reviewer declines a pending request with a note")
 	void reviewerDeclinesPendingRequestWithNote() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		CLOCK.advance(Duration.ofMinutes(30));
 
-		decline("reviewer-dana", id)
+		decline("reviewer-jonathan", id)
 			.then().statusCode(200)
 			.header("Location", nullValue())
 			.body("status", equalTo("DECLINED"))
-			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.decidedBy", equalTo("reviewer-jonathan"))
 			.body("decision.decidedAt", equalTo("2026-01-15T09:30:00Z"))
 			.body("decision.revisionNumber", equalTo(1))
 			.body("decision.note", equalTo(DECLINE_NOTE));
 
 		read(id)
 			.body("status", equalTo("DECLINED"))
-			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.decidedBy", equalTo("reviewer-jonathan"))
 			.body("decision.decidedAt", equalTo("2026-01-15T09:30:00Z"))
 			.body("decision.note", equalTo(DECLINE_NOTE));
 
 		List<Map<String, Object>> declines = historyEvents("DECLINED");
 		assertThat(declines).hasSize(1);
 		assertThat(declines.get(0).get("request_id")).hasToString(id);
-		assertThat(declines.get(0)).containsEntry("revision_number", 1).containsEntry("actor_id", "reviewer-dana");
+		assertThat(declines.get(0)).containsEntry("revision_number", 1).containsEntry("actor_id", "reviewer-jonathan");
 	}
 
 	@Test
 	@DisplayName("US-04 AC-4: a decline without a note gets 400")
 	void declineWithoutNoteIsBadRequest() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 
-		decide("reviewer-dana", id, "decline", newIdempotencyKey(), REVISION_ONE)
+		decide("reviewer-jonathan", id, "decline", newIdempotencyKey(), REVISION_ONE)
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON)
 			.body("status", equalTo(400));
-		decide("reviewer-dana", id, "decline", newIdempotencyKey(), "{\"revisionNumber\":1,\"note\":\"   \"}")
+		decide("reviewer-jonathan", id, "decline", newIdempotencyKey(), "{\"revisionNumber\":1,\"note\":\"   \"}")
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
-		decide("reviewer-dana", id, "decline", newIdempotencyKey(),
+		decide("reviewer-jonathan", id, "decline", newIdempotencyKey(),
 				"{\"revisionNumber\":1,\"note\":\"" + "x".repeat(1001) + "\"}")
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
@@ -186,12 +186,12 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-4: a decline note with a control character gets 400")
 	void declineNoteWithControlCharacterIsBadRequest() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 
-		decide("reviewer-dana", id, "decline", newIdempotencyKey(), declineBody(DECLINE_NOTE + "\\u0001"))
+		decide("reviewer-jonathan", id, "decline", newIdempotencyKey(), declineBody(DECLINE_NOTE + "\\u0001"))
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
-		decide("reviewer-dana", id, "decline", newIdempotencyKey(), declineBody("\\u0001".repeat(1000)))
+		decide("reviewer-jonathan", id, "decline", newIdempotencyKey(), declineBody("\\u0001".repeat(1000)))
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
 
@@ -201,52 +201,52 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-4: a 1000-character reason and note of quotes and line breaks are declined and replayed")
 	void longestEscapedReasonAndNoteAreDeclinedAndReplayed() {
-		String id = submitted("rm-anna", "MA-1001", 25, "\\\"".repeat(1000));
+		String id = submitted("rm-lana", "MA-1001", 25, "\\\"".repeat(1000));
 		String key = newIdempotencyKey();
 		String body = declineBody("\\n".repeat(999) + "x");
 
-		Response original = decide("reviewer-dana", id, "decline", key, body);
+		Response original = decide("reviewer-jonathan", id, "decline", key, body);
 		original.then().statusCode(200)
 			.body("status", equalTo("DECLINED"))
 			.body("currentRevision.reason", equalTo("\"".repeat(1000)))
 			.body("decision.note", equalTo("\n".repeat(999) + "x"));
 
-		assertThat(decide("reviewer-dana", id, "decline", key, body).asString()).isEqualTo(original.asString());
+		assertThat(decide("reviewer-jonathan", id, "decline", key, body).asString()).isEqualTo(original.asString());
 	}
 
 	@Test
 	@DisplayName("US-04 AC-5: the dual-role user cannot decide their own request")
 	void dualRoleUserCannotDecideOwnRequest() {
-		String id = submitted("dual-erin", "MA-1001", 25);
+		String id = submitted("dual-clark", "MA-1001", 25);
 
-		approve("dual-erin", id)
+		approve("dual-clark", id)
 			.then().statusCode(403)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("A reviewer may not decide their own request"));
-		decline("dual-erin", id)
+		decline("dual-clark", id)
 			.then().statusCode(403)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("A reviewer may not decide their own request"));
 		assertStillPendingAndUndecided(id);
 
-		approve("reviewer-ben", id).then().statusCode(200).body("decision.decidedBy", equalTo("reviewer-ben"));
+		approve("reviewer-lex", id).then().statusCode(200).body("decision.decidedBy", equalTo("reviewer-lex"));
 	}
 
 	@Test
 	@DisplayName("US-04 AC-5: an RM-only user cannot decide at all")
 	void rmOnlyUserCannotDecide() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 
-		approve("rm-carl", id)
+		approve("rm-chloe", id)
 			.then().statusCode(403)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Only a reviewer may decide a pricing exception"));
-		decline("rm-carl", id)
+		decline("rm-chloe", id)
 			.then().statusCode(403)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Only a reviewer may decide a pricing exception"));
-		approve("rm-anna", id).then().statusCode(403);
-		approve("rm-carl", UUID.randomUUID().toString()).then().statusCode(403);
+		approve("rm-lana", id).then().statusCode(403);
+		approve("rm-chloe", UUID.randomUUID().toString()).then().statusCode(403);
 
 		assertStillPendingAndUndecided(id);
 	}
@@ -254,28 +254,28 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-5: deciding an already approved or declined request gets 409")
 	void decidedRequestCannotBeDecidedAgain() {
-		String approved = submitted("rm-anna", "MA-1001", 25);
-		approve("reviewer-ben", approved).then().statusCode(200);
-		String declined = submitted("rm-carl", "MA-1002", 25);
-		decline("reviewer-dana", declined).then().statusCode(200);
+		String approved = submitted("rm-lana", "MA-1001", 25);
+		approve("reviewer-lex", approved).then().statusCode(200);
+		String declined = submitted("rm-chloe", "MA-1002", 25);
+		decline("reviewer-jonathan", declined).then().statusCode(200);
 
-		decline("reviewer-dana", approved)
+		decline("reviewer-jonathan", approved)
 			.then().statusCode(409)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Request " + approved + " is already APPROVED"));
-		approve("reviewer-dana", approved).then().statusCode(409);
-		approve("reviewer-ben", declined)
+		approve("reviewer-jonathan", approved).then().statusCode(409);
+		approve("reviewer-lex", declined)
 			.then().statusCode(409)
 			.contentType(PROBLEM_JSON)
 			.body("detail", equalTo("Request " + declined + " is already DECLINED"));
 
 		read(approved)
 			.body("status", equalTo("APPROVED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("decision.note", nullValue());
 		read(declined)
 			.body("status", equalTo("DECLINED"))
-			.body("decision.decidedBy", equalTo("reviewer-dana"))
+			.body("decision.decidedBy", equalTo("reviewer-jonathan"))
 			.body("decision.note", equalTo(DECLINE_NOTE));
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "APPROVED", "SUBMITTED", "DECLINED");
 	}
@@ -283,68 +283,68 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-6: a retried approve replays the original response and records one decision")
 	void retriedApproveReplaysOriginalResponse() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		String key = newIdempotencyKey();
-		Response original = decide("reviewer-ben", id, "approve", key, REVISION_ONE);
+		Response original = decide("reviewer-lex", id, "approve", key, REVISION_ONE);
 		original.then().statusCode(200);
 
 		CLOCK.advance(Duration.ofMinutes(5));
-		Response retry = decide("reviewer-ben", id, "approve", key, "{ \"revisionNumber\" : 1 }");
+		Response retry = decide("reviewer-lex", id, "approve", key, "{ \"revisionNumber\" : 1 }");
 
 		retry.then().statusCode(200).header("Location", nullValue());
 		assertThat(retry.asString()).isEqualTo(original.asString());
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "APPROVED");
-		decide("reviewer-ben", id, "approve", key, "{\"revisionNumber\":2}").then().statusCode(422);
+		decide("reviewer-lex", id, "approve", key, "{\"revisionNumber\":2}").then().statusCode(422);
 	}
 
 	@Test
 	@DisplayName("US-04 AC-6: a retried decline replays the original response and records one decision")
 	void retriedDeclineReplaysOriginalResponse() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		String key = newIdempotencyKey();
-		Response original = decide("reviewer-dana", id, "decline", key, DECLINE_BODY);
+		Response original = decide("reviewer-jonathan", id, "decline", key, DECLINE_BODY);
 		original.then().statusCode(200);
 
 		CLOCK.advance(Duration.ofMinutes(5));
-		Response retry = decide("reviewer-dana", id, "decline", key, DECLINE_BODY);
+		Response retry = decide("reviewer-jonathan", id, "decline", key, DECLINE_BODY);
 
 		retry.then().statusCode(200);
 		assertThat(retry.asString()).isEqualTo(original.asString());
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "DECLINED");
-		decide("reviewer-dana", id, "decline", key, "{\"revisionNumber\":1,\"note\":\"Another note\"}")
+		decide("reviewer-jonathan", id, "decline", key, "{\"revisionNumber\":1,\"note\":\"Another note\"}")
 			.then().statusCode(422);
 	}
 
 	@Test
 	@DisplayName("US-04 AC-1: a reviewer lists requests filtered by status")
 	void reviewerListsRequestsByStatus() {
-		String oldest = submitted("rm-anna", "MA-1001", 25);
+		String oldest = submitted("rm-lana", "MA-1001", 25);
 		CLOCK.advance(Duration.ofMinutes(1));
-		String newer = submitted("rm-carl", "MA-1002", 40);
+		String newer = submitted("rm-chloe", "MA-1002", 40);
 		CLOCK.advance(Duration.ofMinutes(1));
-		String approved = submitted("rm-anna", "MA-1003", 30);
-		approve("reviewer-ben", approved).then().statusCode(200);
+		String approved = submitted("rm-lana", "MA-1003", 30);
+		approve("reviewer-lex", approved).then().statusCode(200);
 
-		list("reviewer-ben", "PENDING")
+		list("reviewer-lex", "PENDING")
 			.statusCode(200)
 			.body("id", contains(oldest, newer))
 			.body("applicationId", contains("MA-1001", "MA-1002"))
 			.body("status", contains("PENDING", "PENDING"))
 			.body("currentRevision.number", contains(1, 1))
 			.body("currentRevision.discountBps", contains(25, 40));
-		list("reviewer-ben", "APPROVED")
+		list("reviewer-lex", "APPROVED")
 			.statusCode(200)
 			.body("id", contains(approved))
-			.body("decision.decidedBy", contains("reviewer-ben"));
-		list("reviewer-ben", "DECLINED").statusCode(200).body("$", empty());
+			.body("decision.decidedBy", contains("reviewer-lex"));
+		list("reviewer-lex", "DECLINED").statusCode(200).body("$", empty());
 	}
 
 	@Test
 	@DisplayName("US-04 AC-1: a missing or unknown status filter gets 400")
 	void listNeedsKnownStatus() {
-		list("reviewer-ben", "NOPE").statusCode(400).contentType(PROBLEM_JSON);
+		list("reviewer-lex", "NOPE").statusCode(400).contentType(PROBLEM_JSON);
 		given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.when().get("/pricing-exceptions")
 			.then().statusCode(400)
 			.contentType(PROBLEM_JSON);
@@ -353,11 +353,11 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-2: a pending request shows an advice snapshot that flags a discount above 50 bps and a short reason")
 	void pendingRequestShowsAdviceSnapshot() {
-		submitted("rm-anna", "MA-1001", 25, VALID_REASON);
-		submitted("rm-anna", "MA-1002", 75, VALID_REASON);
-		submitted("rm-anna", "MA-1003", 25, "Client asked");
+		submitted("rm-lana", "MA-1001", 25, VALID_REASON);
+		submitted("rm-lana", "MA-1002", 75, VALID_REASON);
+		submitted("rm-lana", "MA-1003", 25, "Client asked");
 
-		list("reviewer-ben", "PENDING")
+		list("reviewer-lex", "PENDING")
 			.statusCode(200)
 			.body(adviceOf("MA-1001") + ".recommendation", equalTo("APPROVE"))
 			.body(adviceOf("MA-1001") + ".rationale", not(emptyOrNullString()))
@@ -370,12 +370,12 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-2: a discount of exactly 50 bps and a reason of exactly 30 characters are not flagged")
 	void adviceThresholdsAreExclusive() {
-		submitted("rm-anna", "MA-1001", 50, "x".repeat(30));
-		submitted("rm-anna", "MA-1002", 51, "x".repeat(30));
-		submitted("rm-anna", "MA-1003", 50, "x".repeat(29));
-		submitted("rm-anna", "MA-1004", 75, "Client asked");
+		submitted("rm-lana", "MA-1001", 50, "x".repeat(30));
+		submitted("rm-lana", "MA-1002", 51, "x".repeat(30));
+		submitted("rm-lana", "MA-1003", 50, "x".repeat(29));
+		submitted("rm-lana", "MA-1004", 75, "Client asked");
 
-		list("reviewer-ben", "PENDING")
+		list("reviewer-lex", "PENDING")
 			.statusCode(200)
 			.body(adviceOf("MA-1001") + ".recommendation", equalTo("APPROVE"))
 			.body(adviceOf("MA-1002") + ".recommendation", equalTo("REVIEW_CAREFULLY"))
@@ -387,10 +387,10 @@ class DecideRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-04 AC-2: advice is non-binding, a flagged request can still be approved")
 	void flaggedRequestCanStillBeApproved() {
-		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 75, VALID_REASON);
 		read(id).body("currentRevision.advice.recommendation", equalTo("REVIEW_CAREFULLY"));
 
-		approve("reviewer-ben", id).then().statusCode(200).body("status", equalTo("APPROVED"));
+		approve("reviewer-lex", id).then().statusCode(200).body("status", equalTo("APPROVED"));
 
 		read(id)
 			.body("status", equalTo("APPROVED"))
@@ -425,7 +425,7 @@ class DecideRequestE2ETest extends E2ETestBase {
 
 	private static ValidatableResponse read(String id) {
 		return given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get("/pricing-exceptions/{id}", id)
 			.then().statusCode(200);
 	}

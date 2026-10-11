@@ -41,11 +41,11 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-1: the requester revises a pending request and gets a new revision with its own advice")
 	void requesterRevisesPendingRequest() {
-		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 75, VALID_REASON);
 		read(id).body("currentRevision.advice.recommendation", equalTo("REVIEW_CAREFULLY"));
 		CLOCK.advance(Duration.ofMinutes(10));
 
-		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON))
+		revise("rm-lana", id, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(200)
 			.header("Location", nullValue())
 			.body("id", equalTo(id))
@@ -69,7 +69,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "REVISED");
 		Map<String, Object> revised = historyEvents("REVISED").get(0);
 		assertThat(revised.get("request_id")).hasToString(id);
-		assertThat(revised).containsEntry("revision_number", 2).containsEntry("actor_id", "rm-anna");
+		assertThat(revised).containsEntry("revision_number", 2).containsEntry("actor_id", "rm-lana");
 		assertThat(((OffsetDateTime) revised.get("occurred_at")).toInstant())
 			.isEqualTo(MutableClock.START.plus(Duration.ofMinutes(10)));
 	}
@@ -77,10 +77,10 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-3: the requester withdraws a pending request")
 	void requesterWithdrawsPendingRequest() {
-		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
 		CLOCK.advance(Duration.ofMinutes(10));
 
-		withdraw("rm-anna", id, newIdempotencyKey())
+		withdraw("rm-lana", id, newIdempotencyKey())
 			.then().statusCode(200)
 			.header("Location", nullValue())
 			.body("id", equalTo(id))
@@ -96,7 +96,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "WITHDRAWN");
 		Map<String, Object> withdrawn = historyEvents("WITHDRAWN").get(0);
 		assertThat(withdrawn.get("request_id")).hasToString(id);
-		assertThat(withdrawn).containsEntry("revision_number", 1).containsEntry("actor_id", "rm-anna");
+		assertThat(withdrawn).containsEntry("revision_number", 1).containsEntry("actor_id", "rm-lana");
 		assertThat(((OffsetDateTime) withdrawn.get("occurred_at")).toInstant())
 			.isEqualTo(MutableClock.START.plus(Duration.ofMinutes(10)));
 	}
@@ -104,22 +104,22 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-3: a withdrawn request cannot be decided or revised, and the application accepts a new request")
 	void withdrawnRequestIsClosedAndFreesTheApplication() {
-		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
-		submit("rm-carl", "MA-1001", newIdempotencyKey(), body(30, VALID_REASON)).then().statusCode(409);
-		withdraw("rm-anna", id, newIdempotencyKey()).then().statusCode(200);
+		String id = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
+		submit("rm-chloe", "MA-1001", newIdempotencyKey(), body(30, VALID_REASON)).then().statusCode(409);
+		withdraw("rm-lana", id, newIdempotencyKey()).then().statusCode(200);
 
 		String alreadyWithdrawn = "Request " + id + " is already WITHDRAWN";
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), REVISION_ONE)
 			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
-		decide("reviewer-ben", id, "decline", newIdempotencyKey(), DECLINE_BODY)
+		decide("reviewer-lex", id, "decline", newIdempotencyKey(), DECLINE_BODY)
 			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
-		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON))
+		revise("rm-lana", id, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
-		withdraw("rm-anna", id, newIdempotencyKey())
+		withdraw("rm-lana", id, newIdempotencyKey())
 			.then().statusCode(409).body("detail", equalTo(alreadyWithdrawn));
 
 		CLOCK.advance(Duration.ofMinutes(1));
-		String newId = submit("rm-anna", "MA-1001", newIdempotencyKey(), body(25, VALID_REASON))
+		String newId = submit("rm-lana", "MA-1001", newIdempotencyKey(), body(25, VALID_REASON))
 			.then().statusCode(201)
 			.body("status", equalTo("PENDING"))
 			.body("previousRequestId", nullValue())
@@ -133,13 +133,13 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-6: a retried withdraw replays the original response and records one withdrawal")
 	void retriedWithdrawReplaysOriginalResponse() {
-		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
 		String key = newIdempotencyKey();
-		Response original = withdraw("rm-anna", id, key);
+		Response original = withdraw("rm-lana", id, key);
 		original.then().statusCode(200);
 		CLOCK.advance(Duration.ofMinutes(5));
 
-		Response retry = withdraw("rm-anna", id, key);
+		Response retry = withdraw("rm-lana", id, key);
 
 		retry.then().statusCode(200);
 		assertThat(retry.asString()).isEqualTo(original.asString());
@@ -149,9 +149,9 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-4: only the requester may revise or withdraw")
 	void onlyRequesterMayReviseOrWithdraw() {
-		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
 
-		for (String other : List.of("rm-carl", "reviewer-ben", "dual-erin")) {
+		for (String other : List.of("rm-chloe", "reviewer-lex", "dual-clark")) {
 			revise(other, id, newIdempotencyKey(), body(40, REVISED_REASON))
 				.then().statusCode(403).body("detail", equalTo(ONLY_REQUESTER));
 			withdraw(other, id, newIdempotencyKey())
@@ -160,41 +160,41 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 		read(id).body("status", equalTo("PENDING")).body("currentRevision.number", equalTo(1));
 		assertThat(eventTypes()).containsExactly("SUBMITTED");
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE).then().statusCode(200);
-		revise("rm-carl", id, newIdempotencyKey(), body(40, REVISED_REASON))
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), REVISION_ONE).then().statusCode(200);
+		revise("rm-chloe", id, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(403).body("detail", equalTo(ONLY_REQUESTER));
-		withdraw("rm-carl", id, newIdempotencyKey())
+		withdraw("rm-chloe", id, newIdempotencyKey())
 			.then().statusCode(403).body("detail", equalTo(ONLY_REQUESTER));
 	}
 
 	@Test
 	@DisplayName("US-06 AC-4: revising or withdrawing a request that is not pending gets 409")
 	void closedRequestCannotBeRevisedOrWithdrawn() {
-		String approved = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
-		decide("reviewer-ben", approved, "approve", newIdempotencyKey(), REVISION_ONE).then().statusCode(200);
-		String declined = submitted("rm-anna", "MA-1002", 25, VALID_REASON);
-		decide("reviewer-ben", declined, "decline", newIdempotencyKey(), DECLINE_BODY).then().statusCode(200);
+		String approved = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
+		decide("reviewer-lex", approved, "approve", newIdempotencyKey(), REVISION_ONE).then().statusCode(200);
+		String declined = submitted("rm-lana", "MA-1002", 25, VALID_REASON);
+		decide("reviewer-lex", declined, "decline", newIdempotencyKey(), DECLINE_BODY).then().statusCode(200);
 
 		String alreadyApproved = "Request " + approved + " is already APPROVED";
-		revise("rm-anna", approved, newIdempotencyKey(), body(40, REVISED_REASON))
+		revise("rm-lana", approved, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(409).body("detail", equalTo(alreadyApproved));
-		revise("rm-anna", approved, newIdempotencyKey(), body(201, REVISED_REASON))
+		revise("rm-lana", approved, newIdempotencyKey(), body(201, REVISED_REASON))
 			.then().statusCode(409).body("detail", equalTo(alreadyApproved));
-		withdraw("rm-anna", approved, newIdempotencyKey())
+		withdraw("rm-lana", approved, newIdempotencyKey())
 			.then().statusCode(409).body("detail", equalTo(alreadyApproved));
 		String alreadyDeclined = "Request " + declined + " is already DECLINED";
-		revise("rm-anna", declined, newIdempotencyKey(), body(40, REVISED_REASON))
+		revise("rm-lana", declined, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(409).body("detail", equalTo(alreadyDeclined));
-		withdraw("rm-anna", declined, newIdempotencyKey())
+		withdraw("rm-lana", declined, newIdempotencyKey())
 			.then().statusCode(409).body("detail", equalTo(alreadyDeclined));
 
 		read(approved)
 			.body("status", equalTo("APPROVED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("currentRevision.number", equalTo(1));
 		read(declined)
 			.body("status", equalTo("DECLINED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("currentRevision.number", equalTo(1));
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "APPROVED", "SUBMITTED", "DECLINED");
 	}
@@ -205,9 +205,9 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 		String unknown = UUID.randomUUID().toString();
 		String detail = "Unknown pricing exception request " + unknown;
 
-		revise("rm-anna", unknown, newIdempotencyKey(), body(40, REVISED_REASON))
+		revise("rm-lana", unknown, newIdempotencyKey(), body(40, REVISED_REASON))
 			.then().statusCode(404).body("detail", equalTo(detail));
-		withdraw("rm-anna", unknown, newIdempotencyKey())
+		withdraw("rm-lana", unknown, newIdempotencyKey())
 			.then().statusCode(404).body("detail", equalTo(detail));
 	}
 
@@ -215,9 +215,9 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@MethodSource("invalidRevisions")
 	@DisplayName("US-06 AC-5: an invalid revision is rejected with 400")
 	void invalidRevisionsAreRejected(String label, String body) {
-		String id = submitted("rm-anna", "MA-1006", 100, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1006", 100, VALID_REASON);
 
-		revise("rm-anna", id, newIdempotencyKey(), body)
+		revise("rm-lana", id, newIdempotencyKey(), body)
 			.then().statusCode(400)
 			.contentType("application/problem+json");
 
@@ -246,21 +246,21 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-5: a revision on the exact limits is accepted")
 	void revisionOnExactLimitsIsAccepted() {
-		String id = submitted("rm-anna", "MA-1006", 100, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1006", 100, VALID_REASON);
 
-		revise("rm-anna", id, newIdempotencyKey(), body(149, "x".repeat(10)))
+		revise("rm-lana", id, newIdempotencyKey(), body(149, "x".repeat(10)))
 			.then().statusCode(200)
 			.body("currentRevision.number", equalTo(2))
 			.body("currentRevision.discountBps", equalTo(149));
 
 		String key = newIdempotencyKey();
 		String thousandQuotes = body(1, "\\\"".repeat(1000));
-		Response original = revise("rm-anna", id, key, thousandQuotes);
+		Response original = revise("rm-lana", id, key, thousandQuotes);
 		original.then().statusCode(200)
 			.body("currentRevision.number", equalTo(3))
 			.body("currentRevision.discountBps", equalTo(1))
 			.body("currentRevision.reason", equalTo("\"".repeat(1000)));
-		Response retry = revise("rm-anna", id, key, thousandQuotes);
+		Response retry = revise("rm-lana", id, key, thousandQuotes);
 		retry.then().statusCode(200);
 		assertThat(retry.asString()).isEqualTo(original.asString());
 	}
@@ -268,18 +268,18 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-2: a decision that states a superseded revision gets 409 and leaves no approved discount")
 	void decisionOnSupersededRevisionIsRefused() {
-		String id = submitted("rm-anna", "MA-1001", 25, VALID_REASON);
-		revise("rm-anna", id, newIdempotencyKey(), body(60, REVISED_REASON)).then().statusCode(200);
+		String id = submitted("rm-lana", "MA-1001", 25, VALID_REASON);
+		revise("rm-lana", id, newIdempotencyKey(), body(60, REVISED_REASON)).then().statusCode(200);
 
 		String superseded = "Revision 1 is not the current revision 2";
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), REVISION_ONE)
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), REVISION_ONE)
 			.then().statusCode(409).body("detail", equalTo(superseded));
-		decide("reviewer-ben", id, "decline", newIdempotencyKey(), DECLINE_BODY)
+		decide("reviewer-lex", id, "decline", newIdempotencyKey(), DECLINE_BODY)
 			.then().statusCode(409).body("detail", equalTo(superseded));
 		read(id).body("status", equalTo("PENDING")).body("decision", nullValue());
 		approvedDiscounts("MA-1001").body("size()", equalTo(0));
 
-		decide("reviewer-ben", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
+		decide("reviewer-lex", id, "approve", newIdempotencyKey(), "{\"revisionNumber\":2}")
 			.then().statusCode(200)
 			.body("status", equalTo("APPROVED"))
 			.body("decision.revisionNumber", equalTo(2));
@@ -292,19 +292,19 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-6: a retried revise replays the original response and creates one revision")
 	void retriedReviseReplaysOriginalResponse() {
-		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
+		String id = submitted("rm-lana", "MA-1001", 75, VALID_REASON);
 		String key = newIdempotencyKey();
-		Response original = revise("rm-anna", id, key, body(40, REVISED_REASON));
+		Response original = revise("rm-lana", id, key, body(40, REVISED_REASON));
 		original.then().statusCode(200);
 		CLOCK.advance(Duration.ofMinutes(5));
 
-		Response retry = revise("rm-anna", id, key, body(40, REVISED_REASON));
+		Response retry = revise("rm-lana", id, key, body(40, REVISED_REASON));
 
 		retry.then().statusCode(200);
 		assertThat(retry.asString()).isEqualTo(original.asString());
 		assertThat(eventTypes()).containsExactly("SUBMITTED", "REVISED");
 		assertThat(revisionRows(id)).isEqualTo(2);
-		revise("rm-anna", id, key, body(30, REVISED_REASON))
+		revise("rm-lana", id, key, body(30, REVISED_REASON))
 			.then().statusCode(422)
 			.contentType("application/problem+json");
 	}
@@ -312,9 +312,9 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-06 AC-1: earlier revisions keep their content and read as superseded")
 	void earlierRevisionsKeepContentAndReadAsSuperseded() {
-		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
-		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
-		revise("rm-anna", id, newIdempotencyKey(), body(30, "Client asked")).then().statusCode(200);
+		String id = submitted("rm-lana", "MA-1001", 75, VALID_REASON);
+		revise("rm-lana", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
+		revise("rm-lana", id, newIdempotencyKey(), body(30, "Client asked")).then().statusCode(200);
 
 		revisions(id)
 			.statusCode(200)
@@ -324,7 +324,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 			.body("advice.recommendation", contains("REVIEW_CAREFULLY", "APPROVE", "REVIEW_CAREFULLY"))
 			.body("superseded", contains(true, true, false));
 
-		String neverRevised = submitted("rm-anna", "MA-1002", 25, VALID_REASON);
+		String neverRevised = submitted("rm-lana", "MA-1002", 25, VALID_REASON);
 		revisions(neverRevised)
 			.statusCode(200)
 			.body("number", contains(1))
@@ -335,7 +335,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 
 	private static ValidatableResponse revisions(String id) {
 		return given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.when().get("/pricing-exceptions/{id}/revisions", id)
 			.then();
 	}
@@ -356,7 +356,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 
 	private static ValidatableResponse list(String status) {
 		return given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.queryParam("status", status)
 			.when().get("/pricing-exceptions")
 			.then().statusCode(200);
@@ -370,7 +370,7 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 
 	private static ValidatableResponse read(String id) {
 		return given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.when().get("/pricing-exceptions/{id}", id)
 			.then().statusCode(200);
 	}

@@ -26,9 +26,9 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-05 AC-1: the application process reads the latest approval for an application")
 	void applicationProcessReadsLatestApproval() {
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		CLOCK.advance(Duration.ofHours(1));
-		approve("reviewer-ben", id);
+		approve("reviewer-lex", id);
 
 		approvedDiscounts("application-process", "MA-1001")
 			.statusCode(200)
@@ -36,30 +36,30 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 			.body("[0].requestId", equalTo(id))
 			.body("[0].revision", equalTo(1))
 			.body("[0].discountBps", equalTo(25))
-			.body("[0].approvedBy", equalTo("reviewer-ben"))
+			.body("[0].approvedBy", equalTo("reviewer-lex"))
 			.body("[0].decidedAt", equalTo("2026-01-15T10:00:00Z"));
 	}
 
 	@Test
 	@DisplayName("US-05 AC-1: any internal user reads the same approval")
 	void anyInternalUserReadsSameApproval() {
-		String id = submitted("rm-anna", "MA-1001", 25);
-		approve("reviewer-ben", id);
+		String id = submitted("rm-lana", "MA-1001", 25);
+		approve("reviewer-lex", id);
 		String asApplicationProcess = approvedDiscounts("application-process", "MA-1001")
 			.statusCode(200)
 			.body("$", hasSize(1))
 			.body("[0].requestId", equalTo(id))
 			.extract().asString();
 
-		approvedDiscounts("rm-anna", "MA-1001").statusCode(200).body(equalTo(asApplicationProcess));
-		approvedDiscounts("reviewer-dana", "MA-1001").statusCode(200).body(equalTo(asApplicationProcess));
+		approvedDiscounts("rm-lana", "MA-1001").statusCode(200).body(equalTo(asApplicationProcess));
+		approvedDiscounts("reviewer-jonathan", "MA-1001").statusCode(200).body(equalTo(asApplicationProcess));
 	}
 
 	@Test
 	@DisplayName("US-05 AC-1: the discount comes from the approved revision, not from a later revision")
 	void discountComesFromApprovedRevision() {
-		String id = submitted("rm-anna", "MA-1001", 25);
-		approve("reviewer-ben", id);
+		String id = submitted("rm-lana", "MA-1001", 25);
+		approve("reviewer-lex", id);
 		reviseInDatabase(id, 2, 60);
 		read(id)
 			.body("currentRevision.number", equalTo(2))
@@ -72,7 +72,7 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 			.body("[0].requestId", equalTo(id))
 			.body("[0].revision", equalTo(1))
 			.body("[0].discountBps", equalTo(25))
-			.body("[0].approvedBy", equalTo("reviewer-ben"));
+			.body("[0].approvedBy", equalTo("reviewer-lex"));
 	}
 
 	@Test
@@ -81,21 +81,21 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 		approvedDiscounts("application-process", "MA-1002").statusCode(200).body("$", empty());
 		approvedDiscounts("application-process", "MA-9999").statusCode(200).body("$", empty());
 
-		String id = submitted("rm-anna", "MA-1001", 25);
+		String id = submitted("rm-lana", "MA-1001", 25);
 		approvedDiscounts("application-process", "MA-1001").statusCode(200).body("$", empty());
 
-		decline("reviewer-ben", id);
+		decline("reviewer-lex", id);
 		approvedDiscounts("application-process", "MA-1001").statusCode(200).body("$", empty());
 	}
 
 	@Test
 	@DisplayName("US-05 AC-3: a new request after an approval leaves it effective until the new one is approved")
 	void newerApprovalWinsOnlyOnceApproved() {
-		String first = submitted("rm-anna", "MA-1001", 25);
-		approve("reviewer-ben", first);
+		String first = submitted("rm-lana", "MA-1001", 25);
+		approve("reviewer-lex", first);
 
 		CLOCK.advance(Duration.ofHours(1));
-		String second = submit("rm-anna", "MA-1001", newIdempotencyKey(), body(40))
+		String second = submit("rm-lana", "MA-1001", newIdempotencyKey(), body(40))
 			.then().statusCode(201)
 			.body("id", not(equalTo(first)))
 			.body("status", equalTo("PENDING"))
@@ -107,10 +107,10 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 			.body("$", hasSize(1))
 			.body("[0].requestId", equalTo(first))
 			.body("[0].discountBps", equalTo(25))
-			.body("[0].approvedBy", equalTo("reviewer-ben"));
+			.body("[0].approvedBy", equalTo("reviewer-lex"));
 
 		CLOCK.advance(Duration.ofHours(1));
-		approve("reviewer-dana", second);
+		approve("reviewer-jonathan", second);
 
 		approvedDiscounts("application-process", "MA-1001")
 			.statusCode(200)
@@ -118,20 +118,20 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 			.body("[0].requestId", equalTo(second))
 			.body("[0].revision", equalTo(1))
 			.body("[0].discountBps", equalTo(40))
-			.body("[0].approvedBy", equalTo("reviewer-dana"))
+			.body("[0].approvedBy", equalTo("reviewer-jonathan"))
 			.body("[0].decidedAt", equalTo("2026-01-15T11:00:00Z"));
-		read(first).body("status", equalTo("APPROVED")).body("decision.decidedBy", equalTo("reviewer-ben"));
+		read(first).body("status", equalTo("APPROVED")).body("decision.decidedBy", equalTo("reviewer-lex"));
 	}
 
 	@Test
 	@DisplayName("US-05 AC-4: a resubmit after a decline is a new request linked by previousRequestId")
 	void resubmitAfterDeclineIsLinkedToDeclinedRequest() {
-		String declined = submitted("rm-anna", "MA-1001", 25);
+		String declined = submitted("rm-lana", "MA-1001", 25);
 		read(declined).body("previousRequestId", nullValue());
-		decline("reviewer-ben", declined);
+		decline("reviewer-lex", declined);
 
 		CLOCK.advance(Duration.ofHours(1));
-		String resubmitted = submit("rm-anna", "MA-1001", newIdempotencyKey(), body(20))
+		String resubmitted = submit("rm-lana", "MA-1001", newIdempotencyKey(), body(20))
 			.then().statusCode(201)
 			.body("id", not(equalTo(declined)))
 			.body("status", equalTo("PENDING"))
@@ -141,11 +141,11 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 		read(resubmitted).body("status", equalTo("PENDING")).body("previousRequestId", equalTo(declined));
 		read(declined)
 			.body("status", equalTo("DECLINED"))
-			.body("decision.decidedBy", equalTo("reviewer-ben"))
+			.body("decision.decidedBy", equalTo("reviewer-lex"))
 			.body("decision.note", equalTo(DECLINE_NOTE))
 			.body("$", hasKey("previousRequestId"))
 			.body("previousRequestId", nullValue());
-		submit("rm-anna", "MA-1002", newIdempotencyKey(), body(20))
+		submit("rm-lana", "MA-1002", newIdempotencyKey(), body(20))
 			.then().statusCode(201)
 			.body("previousRequestId", nullValue());
 	}
@@ -166,7 +166,7 @@ class ApprovedDiscountE2ETest extends E2ETestBase {
 
 	private static ValidatableResponse read(String id) {
 		return given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get("/pricing-exceptions/{id}", id)
 			.then().statusCode(200);
 	}

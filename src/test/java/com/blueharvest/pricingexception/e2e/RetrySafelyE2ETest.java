@@ -43,34 +43,34 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	@DisplayName("US-03 AC-1: a retry with the same key and payload replays the original status, body and Location")
 	void retryReplaysOriginalResponse() {
 		String key = newIdempotencyKey();
-		Response original = submit("rm-anna", "MA-1001", key, VALID_BODY);
+		Response original = submit("rm-lana", "MA-1001", key, VALID_BODY);
 		original.then().statusCode(201);
 
 		String reorderedAndSpaced = "{ \"reason\" : \"" + VALID_REASON + "\",  \"discountBps\" : 25 }";
-		Response retry = submit("rm-anna", "MA-1001", key, reorderedAndSpaced);
+		Response retry = submit("rm-lana", "MA-1001", key, reorderedAndSpaced);
 
 		retry.then().statusCode(201).header("Location", equalTo(original.header("Location")));
 		assertThat(retry.asString()).isEqualTo(original.asString());
 		assertThat(historyEvents()).isEqualTo(1);
-		given().header("X-User-Id", "rm-anna").when().get(original.header("Location")).then().statusCode(200);
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(409);
+		given().header("X-User-Id", "rm-lana").when().get(original.header("Location")).then().statusCode(200);
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(409);
 	}
 
 	@Test
 	@DisplayName("US-03 AC-2: the same key with a different payload gets 422")
 	void sameKeyDifferentPayloadIsUnprocessable() {
 		String key = newIdempotencyKey();
-		Response original = submit("rm-anna", "MA-1001", key, VALID_BODY);
+		Response original = submit("rm-lana", "MA-1001", key, VALID_BODY);
 		original.then().statusCode(201);
 
-		submit("rm-anna", "MA-1001", key, body(30, VALID_REASON))
+		submit("rm-lana", "MA-1001", key, body(30, VALID_REASON))
 			.then().statusCode(422)
 			.contentType("application/problem+json")
 			.body("title", equalTo("Unprocessable Content"));
-		submit("rm-anna", "MA-1001", key, body(25, "A different reason for the same discount"))
+		submit("rm-lana", "MA-1001", key, body(25, "A different reason for the same discount"))
 			.then().statusCode(422)
 			.contentType("application/problem+json");
-		submit("rm-anna", "MA-1001", key, VALID_BODY)
+		submit("rm-lana", "MA-1001", key, VALID_BODY)
 			.then().statusCode(201)
 			.header("Location", equalTo(original.header("Location")));
 	}
@@ -83,7 +83,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 			original.setAutoCommit(false);
 			try {
 				holdUncommittedClaim(original, key);
-				submit("rm-anna", "MA-1001", key, VALID_BODY)
+				submit("rm-lana", "MA-1001", key, VALID_BODY)
 					.then().statusCode(409)
 					.contentType("application/problem+json");
 			}
@@ -91,19 +91,19 @@ class RetrySafelyE2ETest extends E2ETestBase {
 				original.rollback();
 			}
 		}
-		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+		submit("rm-lana", "MA-1001", key, VALID_BODY).then().statusCode(201);
 	}
 
 	@Test
 	@DisplayName("US-03 AC-4: a key can be retried after a failed attempt")
 	void keyCanBeRetriedAfterFailedAttempt() {
 		String key = newIdempotencyKey();
-		submit("rm-anna", "MA-1001", key, body(500, VALID_REASON)).then().statusCode(400);
-		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+		submit("rm-lana", "MA-1001", key, body(500, VALID_REASON)).then().statusCode(400);
+		submit("rm-lana", "MA-1001", key, VALID_BODY).then().statusCode(201);
 
 		String refusedKey = newIdempotencyKey();
-		submit("reviewer-ben", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
-		submit("reviewer-ben", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
+		submit("reviewer-lex", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
+		submit("reviewer-lex", "MA-1002", refusedKey, VALID_BODY).then().statusCode(403);
 	}
 
 	@Test
@@ -113,7 +113,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 			.sql("ALTER TABLE idempotency_record ALTER COLUMN route SET DATA TYPE VARCHAR(10)")
 			.update();
 
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
 	}
 
 	@Test
@@ -126,7 +126,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 			List<Future<Response>> calls = IntStream.range(0, 5)
 				.mapToObj(i -> pool.submit(() -> {
 					start.await();
-					return submit("rm-anna", "MA-1001", key, VALID_BODY);
+					return submit("rm-lana", "MA-1001", key, VALID_BODY);
 				}))
 				.toList();
 			start.countDown();
@@ -138,8 +138,8 @@ class RetrySafelyE2ETest extends E2ETestBase {
 				locations.add(response.header("Location"));
 			}
 			assertThat(locations).hasSize(1);
-			given().header("X-User-Id", "rm-anna").when().get(locations.iterator().next()).then().statusCode(200);
-			submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(409);
+			given().header("X-User-Id", "rm-lana").when().get(locations.iterator().next()).then().statusCode(200);
+			submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(409);
 		}
 		finally {
 			pool.shutdown();
@@ -151,7 +151,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	@DisplayName("US-03 AC-3: a submit without a usable Idempotency-Key gets 400")
 	void postWithoutUsableKeyIsBadRequest(String label, String key) {
 		RequestSpecification request = given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.contentType("application/json; charset=UTF-8")
 			.body(VALID_BODY);
 		if (key != null) {
@@ -165,15 +165,15 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-03 AC-3: a 255-character Idempotency-Key is accepted")
 	void keyAtMaximumLengthIsAccepted() {
-		submit("rm-anna", "MA-1001", "k".repeat(255), VALID_BODY).then().statusCode(201);
+		submit("rm-lana", "MA-1001", "k".repeat(255), VALID_BODY).then().statusCode(201);
 	}
 
 	@Test
 	@DisplayName("US-03 AC-3: keys are used verbatim, so a key that differs only by case is a different key")
 	void keysAreUsedVerbatim() {
-		submit("rm-anna", "MA-1001", "Key-A", VALID_BODY).then().statusCode(201);
+		submit("rm-lana", "MA-1001", "Key-A", VALID_BODY).then().statusCode(201);
 
-		submit("rm-anna", "MA-1001", "key-a", body(30, VALID_REASON))
+		submit("rm-lana", "MA-1001", "key-a", body(30, VALID_REASON))
 			.then().statusCode(409)
 			.contentType("application/problem+json")
 			.body("detail", equalTo(ONE_PENDING_DETAIL));
@@ -183,33 +183,33 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	@DisplayName("US-03 AC-5: the same key from another user or on another route is independent")
 	void keyIsScopedToUserAndRoute() {
 		String key = newIdempotencyKey();
-		Response anna = submit("rm-anna", "MA-1001", key, VALID_BODY);
-		anna.then().statusCode(201);
-		String annasId = anna.path("id");
+		Response lana = submit("rm-lana", "MA-1001", key, VALID_BODY);
+		lana.then().statusCode(201);
+		String lanasId = lana.path("id");
 
-		Response carl = submit("rm-carl", "MA-1001", key, VALID_BODY);
-		carl.then()
+		Response chloe = submit("rm-chloe", "MA-1001", key, VALID_BODY);
+		chloe.then()
 			.statusCode(409)
 			.contentType("application/problem+json")
 			.body("detail", equalTo(ONE_PENDING_DETAIL));
-		assertThat(carl.asString()).doesNotContain(annasId);
+		assertThat(chloe.asString()).doesNotContain(lanasId);
 
-		submit("rm-anna", "MA-1002", key, VALID_BODY)
+		submit("rm-lana", "MA-1002", key, VALID_BODY)
 			.then().statusCode(201)
-			.header("Location", not(equalTo(anna.header("Location"))));
+			.header("Location", not(equalTo(lana.header("Location"))));
 	}
 
 	@Test
 	@DisplayName("US-03 AC-5: a key can be reused once the 24h TTL has passed")
 	void keyExpiresAfterTtl() {
 		String key = newIdempotencyKey();
-		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+		submit("rm-lana", "MA-1001", key, VALID_BODY).then().statusCode(201);
 
 		CLOCK.advance(Duration.ofHours(24).minusSeconds(1));
-		submit("rm-anna", "MA-1001", key, body(30, VALID_REASON)).then().statusCode(422);
+		submit("rm-lana", "MA-1001", key, body(30, VALID_REASON)).then().statusCode(422);
 
 		CLOCK.advance(Duration.ofSeconds(1));
-		submit("rm-anna", "MA-1001", key, VALID_BODY)
+		submit("rm-lana", "MA-1001", key, VALID_BODY)
 			.then().statusCode(409)
 			.contentType("application/problem+json")
 			.body("detail", equalTo(ONE_PENDING_DETAIL));
@@ -219,15 +219,15 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	@DisplayName("US-03 AC-5: after the 24h TTL a reused key creates a new request and replays that one")
 	void reusedKeyAfterTtlCreatesNewRequest() {
 		String key = newIdempotencyKey();
-		Response original = submit("rm-anna", "MA-1001", key, VALID_BODY);
+		Response original = submit("rm-lana", "MA-1001", key, VALID_BODY);
 		original.then().statusCode(201);
 		JdbcClient.create(dataSource).sql("UPDATE pricing_exception_request SET status = 'WITHDRAWN'").update();
 
 		CLOCK.advance(Duration.ofHours(24));
-		Response reused = submit("rm-anna", "MA-1001", key, body(30, VALID_REASON));
+		Response reused = submit("rm-lana", "MA-1001", key, body(30, VALID_REASON));
 
 		reused.then().statusCode(201).header("Location", not(equalTo(original.header("Location"))));
-		submit("rm-anna", "MA-1001", key, body(30, VALID_REASON))
+		submit("rm-lana", "MA-1001", key, body(30, VALID_REASON))
 			.then().statusCode(201)
 			.header("Location", equalTo(reused.header("Location")));
 	}
@@ -247,7 +247,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 	private static void holdUncommittedClaim(Connection connection, String key) throws Exception {
 		try (PreparedStatement claim = connection.prepareStatement(
 				"INSERT INTO idempotency_record (id, user_id, route, idempotency_key, fingerprint, expires_at)"
-						+ " VALUES (RANDOM_UUID(), 'rm-anna', 'POST /applications/MA-1001/pricing-exceptions', ?,"
+						+ " VALUES (RANDOM_UUID(), 'rm-lana', 'POST /applications/MA-1001/pricing-exceptions', ?,"
 						+ " 'in-flight', TIMESTAMP WITH TIME ZONE '2099-01-01 00:00:00+00')")) {
 			claim.setString(1, key);
 			claim.executeUpdate();

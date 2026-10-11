@@ -90,7 +90,7 @@ The whole build (complexity gate, architecture test and every end-to-end test) r
 
 ### (c) The lookup and the resubmit link on a running service
 
-`PORT=18083 ./gradlew bootRun` with JDK 21 ("Successfully applied 8 migrations"). Before these calls rm-anna had submitted 75 bps on `MA-1001` and reviewer-ben had approved revision 1 (those calls are in the US-04 trail). The calls were made with `curl -i`; the `Date` header is left out below.
+`PORT=18083 ./gradlew bootRun` with JDK 21 ("Successfully applied 8 migrations"). Before these calls rm-lana had submitted 75 bps on `MA-1001` and reviewer-lex had approved revision 1 (those calls are in the US-04 trail). The calls were made with `curl -i`; the `Date` header is left out below.
 
 ```
 # the application process reads the approved discount of MA-1001
@@ -99,7 +99,7 @@ HTTP/1.1 200
 Content-Type: application/json
 Content-Length: 151
 
-[{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z"}]
+[{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z"}]
 
 # MA-1002 has no request at all
 # curl -i -H 'X-User-Id: application-process' localhost:18083/applications/MA-1002/approved-discounts
@@ -110,10 +110,10 @@ Content-Length: 2
 []
 ```
 
-Then the resubmit link on `MA-1003`. rm-carl submitted 40 bps (request `62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2`, `"previousRequestId":null`), reviewer-dana declined it with the note "The written offer was not attached", and rm-carl submitted again:
+Then the resubmit link on `MA-1003`. rm-chloe submitted 40 bps (request `62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2`, `"previousRequestId":null`), reviewer-jonathan declined it with the note "The written offer was not attached", and rm-chloe submitted again:
 
 ```
-# curl -i -X POST localhost:18083/applications/MA-1003/pricing-exceptions -H 'X-User-Id: rm-carl' \
+# curl -i -X POST localhost:18083/applications/MA-1003/pricing-exceptions -H 'X-User-Id: rm-chloe' \
 #   -H 'Idempotency-Key: story-demo-3' -H 'Content-Type: application/json' \
 #   -d '{"discountBps":30,"reason":"Written competitor offer now attached to the file"}'
 HTTP/1.1 201
@@ -121,7 +121,7 @@ Location: /pricing-exceptions/6e6b9b95-ec40-471c-996b-abb85b96eccf
 Content-Type: application/json
 Content-Length: 508
 
-{"id":"6e6b9b95-ec40-471c-996b-abb85b96eccf","applicationId":"MA-1003","status":"PENDING","requestedBy":"rm-carl","submittedAt":"2026-10-11T19:47:01.783Z","currentRevision":{"number":1,"discountBps":30,"reason":"Written competitor offer now attached to the file","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"createdAt":"2026-10-11T19:47:01.783Z"},"decision":null,"previousRequestId":"62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2"}
+{"id":"6e6b9b95-ec40-471c-996b-abb85b96eccf","applicationId":"MA-1003","status":"PENDING","requestedBy":"rm-chloe","submittedAt":"2026-10-11T19:47:01.783Z","currentRevision":{"number":1,"discountBps":30,"reason":"Written competitor offer now attached to the file","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"createdAt":"2026-10-11T19:47:01.783Z"},"decision":null,"previousRequestId":"62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2"}
 
 # MA-1003 has a declined request and a pending one, so no approval
 # curl -i -H 'X-User-Id: application-process' localhost:18083/applications/MA-1003/approved-discounts

@@ -69,11 +69,11 @@ RunAndExploreE2ETest > US-01 AC-3: exactly one seeded application has a standard
 RunAndExploreE2ETest > US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me PASSED
 RunAndExploreE2ETest > US-01 AC-4: listing applications without X-User-Id is a 401 Problem Details response PASSED
 RunAndExploreE2ETest > US-01 AC-4: an unknown X-User-Id is a 401 Problem Details response PASSED
-RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "rm-anna" -> "RM" PASSED
-RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "rm-carl" -> "RM" PASSED
-RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "reviewer-ben" -> "REVIEWER" PASSED
-RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "reviewer-dana" -> "REVIEWER" PASSED
-RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "dual-erin" -> "RM|REVIEWER" PASSED
+RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "rm-lana" -> "RM" PASSED
+RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "rm-chloe" -> "RM" PASSED
+RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "reviewer-lex" -> "REVIEWER" PASSED
+RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "reviewer-jonathan" -> "REVIEWER" PASSED
+RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "dual-clark" -> "RM|REVIEWER" PASSED
 RunAndExploreE2ETest > US-01 AC-3: each seeded X-User-Id resolves on /me to exactly its roles > "application-process" -> "APPLICATION_PROCESS" PASSED
 RunAndExploreE2ETest > US-01 AC-4: an unknown path is a 404 Problem Details response even without X-User-Id PASSED
 RunAndExploreE2ETest > US-01 AC-3: anyone can list the six seeded users and their roles without X-User-Id PASSED
@@ -99,8 +99,8 @@ BUILD SUCCESSFUL in 39s
 ### (c) `make run PORT=18080` and `/me` (commit `451d49b`)
 
 ```
-$ curl -H 'X-User-Id: rm-anna' http://localhost:18080/me
-{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
+$ curl -H 'X-User-Id: rm-lana' http://localhost:18080/me
+{"id":"rm-lana","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 Container log: `Started PricingExceptionServiceApplication in 1.68 seconds`. `make stop` stopped and removed the container. The runtime image runs as `uid=10001(app)`, and `/app` holds only `application.jar` and `lib`.
@@ -112,8 +112,8 @@ Container log: `Started PricingExceptionServiceApplication in 1.68 seconds`. `ma
 ```
 $ docker exec pes-amd64 uname -m
 x86_64
-$ curl -H 'X-User-Id: rm-anna' http://localhost:18082/me
-{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
+$ curl -H 'X-User-Id: rm-lana' http://localhost:18082/me
+{"id":"rm-lana","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 Container log: `Started PricingExceptionServiceApplication in 19.761 seconds` (emulated).
@@ -129,8 +129,8 @@ c.b.p.PricingExceptionServiceApplication : Started PricingExceptionServiceApplic
 
 $ curl http://localhost:18081/actuator/health
 {"groups":["liveness","readiness"],"status":"UP"}
-$ curl -H 'X-User-Id: rm-anna' http://localhost:18081/me
-{"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
+$ curl -H 'X-User-Id: rm-lana' http://localhost:18081/me
+{"id":"rm-lana","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 The same smokes also passed earlier in the story, when the health endpoint and `/me` were first built.

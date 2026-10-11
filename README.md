@@ -8,7 +8,7 @@ Relationship managers (RMs) sometimes need to offer a customer a better rate tha
 
 ```bash
 make run
-curl -H 'X-User-Id: rm-anna' localhost:8080/me
+curl -H 'X-User-Id: rm-lana' localhost:8080/me
 ```
 
 You need Docker and nothing else. No local JDK is required.
@@ -74,20 +74,20 @@ curl localhost:8080/actuator/health
 ```bash
 curl localhost:8080/users
 # [{"id":"application-process","displayName":"Mortgage application process (service user)","roles":["APPLICATION_PROCESS"]},
-#  {"id":"dual-erin","displayName":"Clark Kent (RM + Reviewer, four-eyes demo)","roles":["RM","REVIEWER"]}, ...]
+#  {"id":"dual-clark","displayName":"Clark Kent (RM + Reviewer, four-eyes demo)","roles":["RM","REVIEWER"]}, ...]
 ```
 
 **Who am I:**
 
 ```bash
-curl -H 'X-User-Id: rm-anna' localhost:8080/me
-# {"id":"rm-anna","displayName":"Lana (Relationship Manager)","roles":["RM"]}
+curl -H 'X-User-Id: rm-lana' localhost:8080/me
+# {"id":"rm-lana","displayName":"Lana (Relationship Manager)","roles":["RM"]}
 ```
 
 **Mortgage applications:**
 
 ```bash
-curl -H 'X-User-Id: reviewer-ben' localhost:8080/applications
+curl -H 'X-User-Id: reviewer-lex' localhost:8080/applications
 # [{"id":"MA-1001","borrowerLabel":"Fictional household A","standardRateBps":425}, ...]
 ```
 
@@ -106,7 +106,7 @@ curl -i localhost:8080/me
 
 ```bash
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-anna' \
+  -H 'X-User-Id: rm-lana' \
   -H 'Idempotency-Key: readme-demo-2' \
   -H 'Content-Type: application/json' \
   -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
@@ -114,7 +114,7 @@ curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
 # Location: /pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
 # Content-Type: application/json
 #
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna",
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana",
 #  "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
 #  "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
 #  "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
@@ -126,8 +126,8 @@ The id and the times differ on every run. Use the `Location` you get back in the
 **Read it back.** Any known user can read a request, here a reviewer:
 
 ```bash
-curl -H 'X-User-Id: reviewer-ben' localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna", ...}
+curl -H 'X-User-Id: reviewer-lex' localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana", ...}
 ```
 
 **Retry safely.** Sending the exact same submit again, with the same key, does not create a second request. It returns the stored answer: the same `201`, the same `Location` and the same body, byte for byte.
@@ -136,7 +136,7 @@ Reusing the key for a different body (here `"discountBps":30`) is refused with `
 
 ```bash
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-anna' \
+  -H 'X-User-Id: rm-lana' \
   -H 'Idempotency-Key: readme-demo-2' \
   -H 'Content-Type: application/json' \
   -d '{"discountBps":30,"reason":"Retention offer matching a competitor quote"}'
@@ -150,7 +150,7 @@ Leaving the `Idempotency-Key` header out gets `400`:
 
 ```bash
 curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
-  -H 'X-User-Id: rm-anna' \
+  -H 'X-User-Id: rm-lana' \
   -H 'Content-Type: application/json' \
   -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
 # HTTP/1.1 400
@@ -162,8 +162,8 @@ curl -i -X POST localhost:8080/applications/MA-1001/pricing-exceptions \
 **The pending queue.** A reviewer lists the requests in one status, oldest first. Each one shows its current revision number, the discount and the advice:
 
 ```bash
-curl -H 'X-User-Id: reviewer-ben' 'localhost:8080/pricing-exceptions?status=PENDING'
-# [{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna",
+curl -H 'X-User-Id: reviewer-lex' 'localhost:8080/pricing-exceptions?status=PENDING'
+# [{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana",
 #   "submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,
 #   "reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY",
 #   "rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},
@@ -174,25 +174,25 @@ curl -H 'X-User-Id: reviewer-ben' 'localhost:8080/pricing-exceptions?status=PEND
 
 ```bash
 curl -i -X POST localhost:8080/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138/approve \
-  -H 'X-User-Id: reviewer-ben' \
+  -H 'X-User-Id: reviewer-lex' \
   -H 'Idempotency-Key: readme-demo-3' \
   -H 'Content-Type: application/json' \
   -d '{"revisionNumber":1}'
 # HTTP/1.1 200
 # Content-Type: application/json
 #
-# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-anna", ...,
-#  "decision":{"decidedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},
+# {"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-lana", ...,
+#  "decision":{"decidedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},
 #  "previousRequestId":null}
 ```
 
-Declining is the same call on `/decline`, with a required note: `-d '{"revisionNumber":1,"note":"The written offer was not attached"}'`. `rm-anna` trying either call gets `403`, and so does a reviewer deciding their own request.
+Declining is the same call on `/decline`, with a required note: `-d '{"revisionNumber":1,"note":"The written offer was not attached"}'`. `rm-lana` trying either call gets `403`, and so does a reviewer deciding their own request.
 
 **Read the approved discount.** The mortgage application process asks for the approval in effect for an application. The answer is always a list: one item, or empty when there is no approval:
 
 ```bash
 curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1001/approved-discounts
-# [{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z"}]
+# [{"requestId":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","revision":1,"discountBps":75,"approvedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z"}]
 
 curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1002/approved-discounts
 # []
@@ -202,24 +202,24 @@ curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1002/app
 
 ```bash
 curl -X POST localhost:8080/pricing-exceptions/<id>/revise \
-  -H 'X-User-Id: rm-anna' -H 'Idempotency-Key: readme-demo-4' -H 'Content-Type: application/json' \
+  -H 'X-User-Id: rm-lana' -H 'Idempotency-Key: readme-demo-4' -H 'Content-Type: application/json' \
   -d '{"discountBps":40,"reason":"Customer accepted a smaller discount after the call"}'
 
-curl -X POST localhost:8080/pricing-exceptions/<id>/withdraw -H 'X-User-Id: rm-anna' -H 'Idempotency-Key: readme-demo-5'
+curl -X POST localhost:8080/pricing-exceptions/<id>/withdraw -H 'X-User-Id: rm-lana' -H 'Idempotency-Key: readme-demo-5'
 
-curl -H 'X-User-Id: reviewer-ben' localhost:8080/pricing-exceptions/<id>/revisions
+curl -H 'X-User-Id: reviewer-lex' localhost:8080/pricing-exceptions/<id>/revisions
 ```
 
 **Full history.** Any internal user can read everything that happened to a request, in order. Each event carries the discount, reason and advice of the revision it applies to, so the advice stands next to the human decision:
 
 ```bash
-curl -H 'X-User-Id: rm-carl' localhost:8080/pricing-exceptions/<id>/history
+curl -H 'X-User-Id: rm-chloe' localhost:8080/pricing-exceptions/<id>/history
 # {"requestId":"410641d6-99e4-4dbd-bbe6-ca31714041f1","applicationId":"MA-1001","status":"DECLINED","previousRequestId":null,"events":[
-#  {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.734Z","discountBps":75, ...,
+#  {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-lana","occurredAt":"2026-10-11T21:50:47.734Z","discountBps":75, ...,
 #   "advice":{"recommendation":"REVIEW_CAREFULLY", ...},"note":null},
-#  {"type":"REVISED","revisionNumber":2,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.781Z","discountBps":40, ...,
+#  {"type":"REVISED","revisionNumber":2,"actorId":"rm-lana","occurredAt":"2026-10-11T21:50:47.781Z","discountBps":40, ...,
 #   "advice":{"recommendation":"APPROVE", ...},"note":null},
-#  {"type":"DECLINED","revisionNumber":2,"actorId":"reviewer-ben","occurredAt":"2026-10-11T21:50:47.813Z","discountBps":40, ...,
+#  {"type":"DECLINED","revisionNumber":2,"actorId":"reviewer-lex","occurredAt":"2026-10-11T21:50:47.813Z","discountBps":40, ...,
 #   "advice":{"recommendation":"APPROVE", ...},"note":"The written offer was not attached"}]}
 ```
 
@@ -233,11 +233,11 @@ All seed data is fictional. The service loads it on every start, and it resets o
 
 | Id | Roles | Purpose |
 |----|-------|---------|
-| `rm-anna` | RM | Relationship manager |
-| `rm-carl` | RM | Second relationship manager |
-| `reviewer-ben` | REVIEWER | Reviewer |
-| `reviewer-dana` | REVIEWER | Second reviewer |
-| `dual-erin` | RM, REVIEWER | Four-eyes demo user: holds both roles, so it can show that nobody decides their own request |
+| `rm-lana` | RM | Relationship manager |
+| `rm-chloe` | RM | Second relationship manager |
+| `reviewer-lex` | REVIEWER | Reviewer |
+| `reviewer-jonathan` | REVIEWER | Second reviewer |
+| `dual-clark` | RM, REVIEWER | Four-eyes demo user: holds both roles, so it can show that nobody decides their own request |
 | `application-process` | APPLICATION_PROCESS | Service user for the mortgage application process |
 
 **Mortgage applications**
@@ -259,7 +259,7 @@ The brief sets no limits for a pricing exception, so the service assumes these. 
 - **Reason.** 10 to 1000 characters, counted as characters, not bytes. Control characters are rejected with `400`, except line breaks and tabs.
 - **One pending request per application.** A second one gets `409`. The database enforces this, so two submits that race still leave exactly one pending request.
 - **Reading.** Any known internal user may read any request.
-- **Deciding.** Only a user with the reviewer role may approve or decline, and never their own request (so `dual-erin` cannot decide what she submitted). The call states the revision number the reviewer looked at, and it must be the request's current revision; otherwise `409`. A decline needs a note of at most 1000 characters, with the same rule on control characters as a reason. An approval carries no note.
+- **Deciding.** Only a user with the reviewer role may approve or decline, and never their own request (so `dual-clark` cannot decide what she submitted). The call states the revision number the reviewer looked at, and it must be the request's current revision; otherwise `409`. A decline needs a note of at most 1000 characters, with the same rule on control characters as a reason. An approval carries no note.
 - **Advice.** Every revision carries a recommendation and a rationale from a rule-based advisor. The advice is non-binding: nothing reads it when a decision is made. It flags a discount above `pricing.advice.high-discount-bps` (default 50) and a reason shorter than `pricing.advice.min-reason-length` (default 30). A short reason is what counts as a weak one.
 - **Approved-discount lookup.** Returns the latest approval of an application as a list of one, and an empty list when there is none, always with `200`. An unknown application id also gets an empty list. After an approval a new request may be submitted; the earlier approval stays in effect until the new one is approved.
 - **Resubmit after a decline.** A declined request stays declined. The next submit for that application is a new request, and the service sets its `previousRequestId` to the declined request when the application's most recent request was declined. The caller does not send the link.

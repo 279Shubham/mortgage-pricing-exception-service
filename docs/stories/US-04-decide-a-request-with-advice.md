@@ -168,8 +168,8 @@ The whole build ran inside `eclipse-temurin:21-jdk-noble`. 106 tests passed and 
 `PORT=18083 ./gradlew bootRun` with JDK 21 ("Successfully applied 8 migrations"). The calls were made with `curl -i`; the `Date` header is left out below. The 75 bps discount is above the advisory threshold, so the advice says to review carefully, and the reviewer approves anyway.
 
 ```
-# rm-anna submits 75 bps on MA-1001
-# curl -i -X POST localhost:18083/applications/MA-1001/pricing-exceptions -H 'X-User-Id: rm-anna' \
+# rm-lana submits 75 bps on MA-1001
+# curl -i -X POST localhost:18083/applications/MA-1001/pricing-exceptions -H 'X-User-Id: rm-lana' \
 #   -H 'Idempotency-Key: readme-demo-2' -H 'Content-Type: application/json' \
 #   -d '{"discountBps":75,"reason":"Retention offer matching a competitor quote"}'
 HTTP/1.1 201
@@ -177,38 +177,38 @@ Location: /pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138
 Content-Type: application/json
 Content-Length: 483
 
-{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}
+{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}
 
-# reviewer-ben reads the pending queue
-# curl -i -H 'X-User-Id: reviewer-ben' 'localhost:18083/pricing-exceptions?status=PENDING'
+# reviewer-lex reads the pending queue
+# curl -i -H 'X-User-Id: reviewer-lex' 'localhost:18083/pricing-exceptions?status=PENDING'
 HTTP/1.1 200
 Content-Type: application/json
 Content-Length: 485
 
-[{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}]
+[{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":null,"previousRequestId":null}]
 
-# reviewer-ben approves revision 1
+# reviewer-lex approves revision 1
 # curl -i -X POST localhost:18083/pricing-exceptions/7fe8deca-9801-4ae4-bebe-56bb7cb7e138/approve \
-#   -H 'X-User-Id: reviewer-ben' -H 'Idempotency-Key: readme-demo-3' -H 'Content-Type: application/json' \
+#   -H 'X-User-Id: reviewer-lex' -H 'Idempotency-Key: readme-demo-3' -H 'Content-Type: application/json' \
 #   -d '{"revisionNumber":1}'
 HTTP/1.1 200
 Content-Type: application/json
 Content-Length: 578
 
-{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-anna","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":{"decidedBy":"reviewer-ben","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},"previousRequestId":null}
+{"id":"7fe8deca-9801-4ae4-bebe-56bb7cb7e138","applicationId":"MA-1001","status":"APPROVED","requestedBy":"rm-lana","submittedAt":"2026-10-11T19:47:01.594Z","currentRevision":{"number":1,"discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"createdAt":"2026-10-11T19:47:01.594Z"},"decision":{"decidedBy":"reviewer-lex","decidedAt":"2026-10-11T19:47:01.718Z","revisionNumber":1,"note":null},"previousRequestId":null}
 ```
 
-A decline was captured in the same run, on `MA-1003`: reviewer-dana declined rm-carl's 40 bps request with a note.
+A decline was captured in the same run, on `MA-1003`: reviewer-jonathan declined rm-chloe's 40 bps request with a note.
 
 ```
 # curl -i -X POST localhost:18083/pricing-exceptions/62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2/decline \
-#   -H 'X-User-Id: reviewer-dana' -H 'Idempotency-Key: story-demo-2' -H 'Content-Type: application/json' \
+#   -H 'X-User-Id: reviewer-jonathan' -H 'Idempotency-Key: story-demo-2' -H 'Content-Type: application/json' \
 #   -d '{"revisionNumber":1,"note":"The written offer was not attached"}'
 HTTP/1.1 200
 Content-Type: application/json
 Content-Length: 597
 
-{"id":"62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2","applicationId":"MA-1003","status":"DECLINED","requestedBy":"rm-carl","submittedAt":"2026-10-11T19:47:01.752Z","currentRevision":{"number":1,"discountBps":40,"reason":"Customer has a lower written offer elsewhere","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"createdAt":"2026-10-11T19:47:01.752Z"},"decision":{"decidedBy":"reviewer-dana","decidedAt":"2026-10-11T19:47:01.772Z","revisionNumber":1,"note":"The written offer was not attached"},"previousRequestId":null}
+{"id":"62e5f9bb-03dc-4cc9-8d11-3a9a2de27ce2","applicationId":"MA-1003","status":"DECLINED","requestedBy":"rm-chloe","submittedAt":"2026-10-11T19:47:01.752Z","currentRevision":{"number":1,"discountBps":40,"reason":"Customer has a lower written offer elsewhere","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"createdAt":"2026-10-11T19:47:01.752Z"},"decision":{"decidedBy":"reviewer-jonathan","decidedAt":"2026-10-11T19:47:01.772Z","revisionNumber":1,"note":"The written offer was not attached"},"previousRequestId":null}
 ```
 
 The service was stopped after the calls.

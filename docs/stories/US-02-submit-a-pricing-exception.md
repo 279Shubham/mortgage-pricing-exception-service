@@ -59,14 +59,14 @@ SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted >
 SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "200 bps with a 1000-character reason" is accepted PASSED
 SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "149 bps on MA-1006" is accepted PASSED
 SubmitRequestE2ETest > US-02 AC-2: values on the exact boundaries are accepted > US-02 AC-2: "a reason of ten euro signs" is accepted PASSED
-SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-ben" gets 403 PASSED
-SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-dana" gets 403 PASSED
+SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-lex" gets 403 PASSED
+SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "reviewer-jonathan" gets 403 PASSED
 SubmitRequestE2ETest > US-02 AC-3: a caller without the RM role cannot submit > US-02 AC-3: "application-process" gets 403 PASSED
 SubmitRequestE2ETest > US-02 AC-2: an unknown application is a 404 Problem Details response PASSED
-SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-anna" reads the request back PASSED
-SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-carl" reads the request back PASSED
-SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "reviewer-ben" reads the request back PASSED
-SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "dual-erin" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-lana" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "rm-chloe" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "reviewer-lex" reads the request back PASSED
+SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "dual-clark" reads the request back PASSED
 SubmitRequestE2ETest > US-02 AC-1: any known caller reads the request back > US-02 AC-1: "application-process" reads the request back PASSED
 SubmitRequestE2ETest > US-02 AC-1: a malformed request id is a 400 Problem Details response PASSED
 SubmitRequestE2ETest > US-02 AC-4: a second pending request for the same application gets 409 PASSED
@@ -117,7 +117,7 @@ The whole suite (5 architecture rules, 18 US-01, 41 US-02 and 12 US-03 tests) pa
 o.f.core.internal.command.DbMigrate      : Successfully applied 5 migrations to schema "public", now at version v5 (execution time 00:00.005s)
 c.b.p.PricingExceptionServiceApplication : Started PricingExceptionServiceApplication in 1.903 seconds (process running for 2.024)
 
-$ curl -i -X POST localhost:18083/applications/MA-1001/pricing-exceptions -H 'X-User-Id: rm-anna' \
+$ curl -i -X POST localhost:18083/applications/MA-1001/pricing-exceptions -H 'X-User-Id: rm-lana' \
     -H 'Idempotency-Key: readme-demo-1' -H 'Content-Type: application/json' \
     -d '{"discountBps":25,"reason":"Retention offer matching a competitor quote"}'
 HTTP/1.1 201
@@ -125,10 +125,10 @@ Location: /pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
 Content-Type: application/json
 Content-Length: 297
 
-{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
+{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
 
-$ curl -H 'X-User-Id: reviewer-ben' localhost:18083/pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
-{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-anna","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
+$ curl -H 'X-User-Id: reviewer-lex' localhost:18083/pricing-exceptions/49222df3-2378-49eb-9019-be689e685e21
+{"id":"49222df3-2378-49eb-9019-be689e685e21","applicationId":"MA-1001","status":"PENDING","requestedBy":"rm-lana","submittedAt":"2026-10-11T15:32:18.613Z","currentRevision":{"number":1,"discountBps":25,"reason":"Retention offer matching a competitor quote","createdAt":"2026-10-11T15:32:18.613Z"}}
 ```
 
 The service was stopped after the calls.

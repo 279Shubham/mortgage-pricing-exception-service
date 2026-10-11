@@ -20,13 +20,13 @@ class AdviceThresholdsE2ETest extends E2ETestBase {
 	void configuredThresholdsChangeTheAdvice() {
 		String body = "{\"discountBps\":25,\"reason\":\"" + REASON_OF_43_CHARACTERS + "\"}";
 
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), body)
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), body)
 			.then().statusCode(201)
 			.body("currentRevision.advice.recommendation", equalTo("REVIEW_CAREFULLY"))
 			.body("currentRevision.advice.rationale", allOf(containsString("20"), containsString("60")));
 
 		given()
-			.header("X-User-Id", "reviewer-ben")
+			.header("X-User-Id", "reviewer-lex")
 			.queryParam("status", "PENDING")
 			.when().get("/pricing-exceptions")
 			.then().statusCode(200)

@@ -41,22 +41,22 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-1: an RM submits a discount and gets 201 with a Location to the pending request")
 	void rmSubmitsAndAnyInternalUserReadsItBack() {
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201)
 			.header("Location", matchesPattern("^/pricing-exceptions/[0-9a-f-]{36}$"))
 			.body("status", equalTo("PENDING"))
 			.body("currentRevision.number", equalTo(1))
 			.body("currentRevision.discountBps", equalTo(25))
 			.body("currentRevision.reason", equalTo(VALID_REASON))
-			.body("requestedBy", equalTo("rm-anna"))
+			.body("requestedBy", equalTo("rm-lana"))
 			.body("applicationId", equalTo("MA-1001"));
 	}
 
 	@ParameterizedTest(name = "US-02 AC-1: {0} reads the request back")
-	@ValueSource(strings = { "rm-anna", "rm-carl", "reviewer-ben", "dual-erin", "application-process" })
+	@ValueSource(strings = { "rm-lana", "rm-chloe", "reviewer-lex", "dual-clark", "application-process" })
 	@DisplayName("US-02 AC-1: any known caller reads the request back")
 	void anyKnownCallerReadsRequest(String userId) {
-		Response created = submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY);
+		Response created = submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY);
 		String id = created.path("id");
 
 		given()
@@ -66,7 +66,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.body("id", equalTo(id))
 			.body("applicationId", equalTo("MA-1001"))
 			.body("status", equalTo("PENDING"))
-			.body("requestedBy", equalTo("rm-anna"))
+			.body("requestedBy", equalTo("rm-lana"))
 			.body("submittedAt", equalTo("2026-01-15T09:00:00Z"))
 			.body("currentRevision.number", equalTo(1))
 			.body("currentRevision.discountBps", equalTo(25))
@@ -76,7 +76,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-1: the submission time comes from the injected clock")
 	void submissionTimeComesFromTheClock() {
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201)
 			.body("submittedAt", equalTo("2026-01-15T09:00:00Z"))
 			.body("currentRevision.createdAt", equalTo("2026-01-15T09:00:00Z"));
@@ -87,7 +87,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	void submissionTimeFollowsAdvancedClock() {
 		CLOCK.advance(Duration.ofHours(1));
 
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201)
 			.body("submittedAt", equalTo("2026-01-15T10:00:00Z"))
 			.body("currentRevision.createdAt", equalTo("2026-01-15T10:00:00Z"));
@@ -96,7 +96,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-1: a new request records one SUBMITTED history event by the submitting RM")
 	void newRequestRecordsSubmittedEvent() {
-		String id = submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).path("id");
+		String id = submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY).path("id");
 
 		List<Map<String, Object>> events = historyEvents();
 		assertThat(events).hasSize(1);
@@ -104,7 +104,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 		assertThat(event.get("request_id")).hasToString(id);
 		assertThat(event).containsEntry("event_type", "SUBMITTED")
 			.containsEntry("revision_number", 1)
-			.containsEntry("actor_id", "rm-anna");
+			.containsEntry("actor_id", "rm-lana");
 		assertThat(((OffsetDateTime) event.get("occurred_at")).toInstant()).isEqualTo(MutableClock.START);
 	}
 
@@ -112,7 +112,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@DisplayName("US-02 AC-1: an unknown request id is a 404 Problem Details response")
 	void unknownRequestIsNotFound() {
 		given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get("/pricing-exceptions/" + UUID.randomUUID())
 			.then().statusCode(404)
 			.contentType("application/problem+json")
@@ -123,7 +123,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@DisplayName("US-02 AC-1: a malformed request id is a 400 Problem Details response")
 	void malformedRequestIdIsBadRequest() {
 		given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get("/pricing-exceptions/not-a-uuid")
 			.then().statusCode(400)
 			.contentType("application/problem+json")
@@ -131,7 +131,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	}
 
 	@ParameterizedTest(name = "US-02 AC-3: {0} gets 403")
-	@ValueSource(strings = { "reviewer-ben", "reviewer-dana", "application-process" })
+	@ValueSource(strings = { "reviewer-lex", "reviewer-jonathan", "application-process" })
 	@DisplayName("US-02 AC-3: a caller without the RM role cannot submit")
 	void onlyAnRmMaySubmit(String userId) {
 		submit(userId, "MA-1001", newIdempotencyKey(), VALID_BODY)
@@ -143,12 +143,12 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-2: an unknown application is a 404 Problem Details response")
 	void unknownApplicationIsNotFound() {
-		submit("rm-anna", "NOPE", newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "NOPE", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(404)
 			.contentType("application/problem+json")
 			.body("status", equalTo(404))
 			.body("detail", equalTo("Unknown mortgage application NOPE"));
-		submit("rm-anna", "X".repeat(20), newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "X".repeat(20), newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(404)
 			.contentType("application/problem+json");
 	}
@@ -156,7 +156,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-2: an over-long application id is rejected with 400 before the caller's role is checked")
 	void overLongApplicationIdIsRejectedBeforeTheRoleCheck() {
-		submit("reviewer-ben", "X".repeat(200), newIdempotencyKey(), VALID_BODY)
+		submit("reviewer-lex", "X".repeat(200), newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(400)
 			.contentType("application/problem+json")
 			.body("status", equalTo(400));
@@ -166,7 +166,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@MethodSource("invalidSubmissions")
 	@DisplayName("US-02 AC-2: an invalid submission is rejected with 400")
 	void invalidSubmissionsAreRejected(String label, String applicationId, String body) {
-		submit("rm-anna", applicationId, newIdempotencyKey(), body)
+		submit("rm-lana", applicationId, newIdempotencyKey(), body)
 			.then().statusCode(400)
 			.contentType("application/problem+json")
 			.body("status", equalTo(400));
@@ -194,7 +194,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 				Arguments.of("a reason of 1000 control characters", "MA-1001", body(25, "\\u0001".repeat(1000))),
 				Arguments.of("an unknown extra field", "MA-1001", "{\"discountBps\":25," + reason + ",\"unexpected\":1}"),
 				Arguments.of("a client-supplied requestedBy", "MA-1001",
-						"{\"discountBps\":25," + reason + ",\"requestedBy\":\"rm-carl\"}"),
+						"{\"discountBps\":25," + reason + ",\"requestedBy\":\"rm-chloe\"}"),
 				Arguments.of("a client-supplied status", "MA-1001",
 						"{\"discountBps\":25," + reason + ",\"status\":\"APPROVED\"}"),
 				Arguments.of("a 21-character application id", "X".repeat(21), VALID_BODY),
@@ -207,11 +207,11 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@MethodSource("boundaryValues")
 	@DisplayName("US-02 AC-2: values on the exact boundaries are accepted")
 	void boundaryValuesAreAccepted(String label, String applicationId, int discountBps, String reason) {
-		Response created = submit("rm-anna", applicationId, newIdempotencyKey(), body(discountBps, reason));
+		Response created = submit("rm-lana", applicationId, newIdempotencyKey(), body(discountBps, reason));
 		created.then().statusCode(201);
 
 		given()
-			.header("X-User-Id", "rm-anna")
+			.header("X-User-Id", "rm-lana")
 			.when().get(created.header("Location"))
 			.then().statusCode(200)
 			.body("currentRevision.discountBps", equalTo(discountBps))
@@ -229,30 +229,30 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	@Test
 	@DisplayName("US-02 AC-2: a rejected submission creates nothing")
 	void rejectedSubmissionCreatesNothing() {
-		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(150, VALID_REASON))
+		submit("rm-lana", "MA-1006", newIdempotencyKey(), body(150, VALID_REASON))
 			.then().statusCode(400);
-		submit("reviewer-ben", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
+		submit("reviewer-lex", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
 			.then().statusCode(403);
 		assertThat(storedRows()).isZero();
 
-		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
+		submit("rm-lana", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
 			.then().statusCode(201);
 	}
 
 	@Test
 	@DisplayName("US-02 AC-4: a second pending request for the same application gets 409")
 	void secondPendingRequestIsConflict() {
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY)
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201);
 
-		submit("rm-carl", "MA-1001", newIdempotencyKey(), VALID_BODY)
+		submit("rm-chloe", "MA-1001", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(409)
 			.contentType("application/problem+json")
 			.body("status", equalTo(409))
 			.body("detail", equalTo("Application MA-1001 already has a pending request"))
 			.body("trace", nullValue())
 			.body("exception", nullValue());
-		submit("rm-carl", "MA-1002", newIdempotencyKey(), VALID_BODY)
+		submit("rm-chloe", "MA-1002", newIdempotencyKey(), VALID_BODY)
 			.then().statusCode(201);
 	}
 
@@ -263,7 +263,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.sql("ALTER TABLE pricing_exception_request ADD CONSTRAINT no_new_requests CHECK (status <> 'PENDING')")
 			.update();
 
-		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
 	}
 
 	@Test
@@ -275,7 +275,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			List<Future<Integer>> calls = IntStream.range(0, 5)
 				.mapToObj(i -> pool.submit(() -> {
 					start.await();
-					return submit("rm-anna", "MA-1001", "race-" + i, VALID_BODY).statusCode();
+					return submit("rm-lana", "MA-1001", "race-" + i, VALID_BODY).statusCode();
 				}))
 				.toList();
 			start.countDown();
