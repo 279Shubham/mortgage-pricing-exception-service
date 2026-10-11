@@ -35,6 +35,8 @@ public class PricingExceptionService {
 
 	private final RequestEventRepository events;
 
+	private final RequestLookup lookup;
+
 	private final ReviewAdvisor advisor;
 
 	private final Clock clock;
@@ -45,12 +47,13 @@ public class PricingExceptionService {
 
 	public PricingExceptionService(MortgageApplicationRepository applications,
 			PricingExceptionRequestRepository requests, RequestRevisionRepository revisions,
-			RequestEventRepository events, ReviewAdvisor advisor, Clock clock,
+			RequestEventRepository events, RequestLookup lookup, ReviewAdvisor advisor, Clock clock,
 			@Value("${pricing.discount.min-bps}") int minBps, @Value("${pricing.discount.max-bps}") int maxBps) {
 		this.applications = applications;
 		this.requests = requests;
 		this.revisions = revisions;
 		this.events = events;
+		this.lookup = lookup;
 		this.advisor = advisor;
 		this.clock = clock;
 		this.minBps = minBps;
@@ -75,9 +78,7 @@ public class PricingExceptionService {
 
 	@Transactional(readOnly = true)
 	public PricingExceptionResponse find(UUID id) {
-		PricingExceptionRequest request = requests.findById(id)
-			.orElseThrow(() -> new NotFoundException("Unknown pricing exception request " + id));
-		return withCurrentRevision(request);
+		return withCurrentRevision(lookup.find(id));
 	}
 
 	@Transactional(readOnly = true)
@@ -101,10 +102,7 @@ public class PricingExceptionService {
 	}
 
 	private PricingExceptionResponse withCurrentRevision(PricingExceptionRequest request) {
-		RequestRevision revision = revisions
-			.findByRequestIdAndRevisionNumber(request.getId(), request.getCurrentRevision())
-			.orElseThrow();
-		return PricingExceptionResponse.from(request, revision);
+		return PricingExceptionResponse.from(request, lookup.currentRevisionOf(request));
 	}
 
 	private MortgageApplication findApplication(String applicationId) {
