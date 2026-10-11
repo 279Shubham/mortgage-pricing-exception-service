@@ -56,6 +56,15 @@ abstract class E2ETestBase {
 			.when().post("/pricing-exceptions/{id}/{action}", requestId, action);
 	}
 
+	static Response revise(String userId, String requestId, String idempotencyKey, String body) {
+		return given()
+			.header("X-User-Id", userId)
+			.header("Idempotency-Key", idempotencyKey)
+			.contentType("application/json; charset=UTF-8")
+			.body(body)
+			.when().post("/pricing-exceptions/{id}/revise", requestId);
+	}
+
 	void reviseInDatabase(String requestId, int revisionNumber, int discountBps) {
 		JdbcClient database = JdbcClient.create(flyway.getConfiguration().getDataSource());
 		database
