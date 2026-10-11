@@ -1,6 +1,9 @@
 package com.blueharvest.pricingexception.e2e;
 
+import static io.restassured.RestAssured.given;
+
 import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import java.time.Clock;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
@@ -32,6 +35,15 @@ abstract class E2ETestBase {
 
 	static String newIdempotencyKey() {
 		return UUID.randomUUID().toString();
+	}
+
+	static Response submit(String userId, String applicationId, String idempotencyKey, String body) {
+		return given()
+			.header("X-User-Id", userId)
+			.header("Idempotency-Key", idempotencyKey)
+			.contentType("application/json; charset=UTF-8")
+			.body(body)
+			.when().post("/applications/{applicationId}/pricing-exceptions", applicationId);
 	}
 
 	@BeforeEach
