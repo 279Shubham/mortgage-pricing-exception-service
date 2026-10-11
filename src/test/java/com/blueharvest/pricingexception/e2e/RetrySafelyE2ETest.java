@@ -26,6 +26,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 class RetrySafelyE2ETest extends E2ETestBase {
 
@@ -88,6 +89,16 @@ class RetrySafelyE2ETest extends E2ETestBase {
 			}
 		}
 		submit("rm-anna", "MA-1001", key, VALID_BODY).then().statusCode(201);
+	}
+
+	@Test
+	@DisplayName("US-03 AC-4: a key claim that fails for any reason but a duplicate is a 500, not an in-flight 409")
+	void failedClaimIsNotReportedAsInFlight() {
+		JdbcClient.create(dataSource)
+			.sql("ALTER TABLE idempotency_record ALTER COLUMN route SET DATA TYPE VARCHAR(10)")
+			.update();
+
+		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(500);
 	}
 
 	@Test

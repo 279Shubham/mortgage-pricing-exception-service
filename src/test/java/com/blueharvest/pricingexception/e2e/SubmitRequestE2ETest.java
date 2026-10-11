@@ -125,6 +125,18 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.contentType("application/problem+json")
 			.body("status", equalTo(404))
 			.body("detail", equalTo("Unknown mortgage application NOPE"));
+		submit("rm-anna", "X".repeat(20), newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(404)
+			.contentType("application/problem+json");
+	}
+
+	@Test
+	@DisplayName("US-02 AC-2: an over-long application id is rejected with 400 before the caller's role is checked")
+	void overLongApplicationIdIsRejectedBeforeTheRoleCheck() {
+		submit("reviewer-ben", "X".repeat(200), newIdempotencyKey(), VALID_BODY)
+			.then().statusCode(400)
+			.contentType("application/problem+json")
+			.body("status", equalTo(400));
 	}
 
 	@ParameterizedTest(name = "US-02 AC-2: {0} is rejected with 400")
@@ -160,6 +172,8 @@ class SubmitRequestE2ETest extends E2ETestBase {
 						"{\"discountBps\":25," + reason + ",\"requestedBy\":\"rm-carl\"}"),
 				Arguments.of("a client-supplied status", "MA-1001",
 						"{\"discountBps\":25," + reason + ",\"status\":\"APPROVED\"}"),
+				Arguments.of("a 21-character application id", "X".repeat(21), VALID_BODY),
+				Arguments.of("a 200-character application id", "X".repeat(200), VALID_BODY),
 				Arguments.of("an empty body", "MA-1001", ""),
 				Arguments.of("malformed JSON", "MA-1001", "{"));
 	}
