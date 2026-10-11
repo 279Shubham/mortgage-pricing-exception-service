@@ -37,7 +37,7 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/applications/{applicationId}/pricing-exceptions")
-	ResponseEntity<String> submit(Actor caller, @PathVariable String applicationId,
+	ResponseEntity<String> submit(Actor caller, @PathVariable @Size(max = 20) String applicationId,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody SubmitRequestBody body) {
 		SubmitCommand command = new SubmitCommand(applicationId, body.discountBps(), body.reason());

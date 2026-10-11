@@ -62,8 +62,11 @@ public class IdempotencyService {
 		try {
 			return records.saveAndFlush(record);
 		}
-		catch (DataIntegrityViolationException duplicate) {
-			throw new KeyAlreadyClaimed();
+		catch (DataIntegrityViolationException failure) {
+			if (UniqueConstraint.isViolatedBy(failure)) {
+				throw new KeyAlreadyClaimed();
+			}
+			throw failure;
 		}
 	}
 
