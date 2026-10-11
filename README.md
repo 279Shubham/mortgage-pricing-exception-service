@@ -48,7 +48,7 @@ Both commands run three things, and any failure fails the build:
 2. **Architecture test (ArchUnit):** checks the layering (controllers call services, and only services use the Spring Data repositories) and bans reading the system time directly: any `java.time` `now()` without a clock argument (method references such as `Instant::now` included); `System.currentTimeMillis()` and `System.nanoTime()`; system `Clock` or `InstantSource` factories outside the clock config; the legacy `java.util.Date` and `java.util.Calendar` types; and Hibernate's `@CreationTimestamp`, `@UpdateTimestamp` and `@CurrentTimestamp`. Time always comes from the injected clock.
 3. **End-to-end suite:** starts the full service on a random port and calls it over HTTP.
 
-The tests are end-to-end only, and their names follow the story acceptance criteria (for example `US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me`), so the test report reads as a checklist of user stories.
+The tests are end-to-end only, and their names follow the story acceptance criteria (for example `US-01 AC-3: a seeded X-User-Id resolves to that user and roles on /me`), so the test report reads as a checklist of user stories. Each story in [`docs/stories/`](docs/stories/) maps its criteria to the tests that prove them.
 
 ## Explore the API
 
@@ -199,6 +199,23 @@ The brief sets no limits for a pricing exception, so the service assumes these. 
 ## Architecture and decisions
 
 ## How AI agents were used and verified
+
+AI agents wrote the plans, the tests and the code. Each feature went through the same loop, and each step left something a person can check:
+
+1. **Plan.** A user story with numbered acceptance criteria, and a plan that splits it into thin slices.
+2. **Execute.** For each slice, the failing end-to-end tests are committed first and the code that makes them pass second. The commit history shows the pairs, for example `9fa5852` (tests) then `15b0583` (code).
+3. **Review.** A separate review pass reads the story's code. Each finding is fixed in its own commit or recorded as left open.
+4. **Verify.** The full build (complexity gate, architecture test, end-to-end suite) runs, and its real output is pasted into the story. Where a gate was added, a temporary probe shows it failing first.
+
+Each story file in [`docs/stories/`](docs/stories/) is the record of one pass through that loop: criteria, a criterion-to-test table, the plan, review notes and verification evidence.
+
+| Story | End-to-end tests |
+|-------|------------------|
+| [US-01 Run and explore the service](docs/stories/US-01-run-and-explore.md) | `RunAndExploreE2ETest`, `ArchitectureTest` |
+| [US-02 Submit a pricing exception](docs/stories/US-02-submit-a-pricing-exception.md) | `SubmitRequestE2ETest` |
+| [US-03 Retry safely](docs/stories/US-03-retry-safely.md) | `RetrySafelyE2ETest` |
+
+From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code, and US-02 and US-03 are not reviewed yet.
 
 ## Production readiness gaps
 

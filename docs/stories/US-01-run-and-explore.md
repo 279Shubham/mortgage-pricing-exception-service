@@ -10,6 +10,18 @@ As a Blue Harvest reviewer, I want to start the service and run its test suite w
 - **AC-4:** Errors use Spring's built-in Problem Details format with the correct status code (e.g. 401 for a missing or unknown user). There is no custom error-type scheme.
 - **AC-5:** The build fails when a method exceeds cyclomatic or cognitive complexity 8, or when the ArchUnit test finds a layering violation or an `Instant.now()` outside the clock.
 
+## Tests
+
+End-to-end tests: `RunAndExploreE2ETest`. Build gates: `ArchitectureTest` and the PMD complexity check. Every test name starts with the criterion it proves.
+
+| Criterion | Proved by |
+|-----------|-----------|
+| AC-1 | `the service reports UP on /actuator/health without X-User-Id`, plus the captured runs in evidence (c), (d) and (e) |
+| AC-2 | The captured `make test` run in evidence (b) |
+| AC-3 | `a seeded X-User-Id resolves to that user and roles on /me`<br>`each seeded X-User-Id resolves on /me to exactly its roles`<br>`anyone can list the six seeded users and their roles without X-User-Id`<br>`a known caller lists the six fictional seeded applications with integer standard rates in bps`<br>`exactly one seeded application has a standard rate below the 200 bps discount cap`<br>`every endpoint except the open ones is a 401 without X-User-Id`<br>`the actuator discovery page is closed and health is the only actuator endpoint` |
+| AC-4 | `a missing X-User-Id is a 401 Problem Details response`<br>`an unknown X-User-Id is a 401 Problem Details response`<br>`an empty X-User-Id is a 401 Problem Details response`<br>`listing applications without X-User-Id is a 401 Problem Details response`<br>`an unknown path is a 404 Problem Details response even without X-User-Id` |
+| AC-5 | The five `ArchitectureTest` rules and the PMD gate, each shown failing on a temporary probe in evidence (f) |
+
 ## Plan
 
 The story was delivered in four thin slices, each one runnable and tested before the next started:
@@ -23,7 +35,27 @@ The story was delivered in four thin slices, each one runnable and tested before
 
 ## Review notes
 
-Code-review findings for this story, and how each was resolved, are appended here when the story closes.
+The story's code was reviewed twice. Every warning was fixed in its own commit, and the build was green after each one.
+
+**First review: six warnings, all fixed.**
+
+| Finding | Resolution | Commit |
+|---------|------------|--------|
+| An endpoint was protected only if its handler happened to declare a caller parameter | One interceptor now checks the caller before any controller runs, with an explicit open list. A new test calls every mapped endpoint without the header and expects 401 | `6250506` |
+| The 401 response had no `WWW-Authenticate` header | The header is sent and the test asserts its exact value | `6f65bb2` |
+| The clock rule missed method references such as `Instant::now` and several other ways to read the system time | The rule now covers calls and method references, and system clock factories are allowed only in the clock config | `c0c3b48` |
+| The test clock was written on the test thread and read on server threads with no visibility guarantee | The field is `volatile` | `0cfda5a` |
+| Role values in the database were unconstrained, so one bad row would turn `/users` into a 500 | A new migration adds a `CHECK` constraint on the role column | `7db3291` |
+| The layering rule did not stop classes outside the layers from using a repository | A new rule allows only services to depend on repositories | `66816f1` |
+
+**Second review, after those fixes: two warnings, both fixed.**
+
+| Finding | Resolution | Commit |
+|---------|------------|--------|
+| Actuator endpoints are served outside the caller check, so the health entry in the open list did nothing and the discovery page answered without a caller | Discovery is switched off, health is the only exposed actuator endpoint, and a test pins that down | `e28176b` |
+| The clock rule still allowed `InstantSource.system()`, `new Date()` and `Calendar.getInstance()` | The rule covers every `InstantSource`, and a new rule bans the legacy date types and Hibernate's timestamp annotations | `1f05524` |
+
+**Left open.** Ten minor notes were recorded and not fixed. The ones worth knowing: the caller check covers controller handlers only; the test that sweeps every endpoint keeps its own copy of the open-path list; the role `CHECK` list duplicates the `Role` enum; and the README's no-SDKMAN instruction still shows an SDKMAN command.
 
 ## Verification evidence
 

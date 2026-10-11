@@ -10,6 +10,18 @@ As an upstream caller submitting on an RM's behalf, I want to retry a submit saf
 - **AC-4:** A retry while the original is still in flight gets 409; the key claim is made in the same transaction as the business write.
 - **AC-5:** The same key used by another user or on another route is independent. After the configured TTL (default 24h, advanced with the test clock), the key can be reused.
 
+## Tests
+
+End-to-end tests: `RetrySafelyE2ETest`. Every test name starts with the criterion it proves.
+
+| Criterion | Proved by |
+|-----------|-----------|
+| AC-1 | `a retry with the same key and payload replays the original status, body and Location` |
+| AC-2 | `the same key with a different payload gets 422` |
+| AC-3 | `a submit without a usable Idempotency-Key gets 400`<br>`a 255-character Idempotency-Key is accepted`<br>`keys are used verbatim, so a key that differs only by case is a different key` |
+| AC-4 | `a retry while the original is still in flight gets 409`<br>`five concurrent identical retries create one request` |
+| AC-5 | `the same key from another user or on another route is independent`<br>`a key can be reused once the 24h TTL has passed` |
+
 ## Plan
 
 The story was delivered in three thin slices, each one tested before the next started:
@@ -22,7 +34,7 @@ The behaviour follows the convention of the expired IETF Idempotency-Key draft a
 
 ## Review notes
 
-Code-review findings for this story, and how each was resolved, are appended here when the story closes.
+**Status: not reviewed yet.** No code review has run on this story's code, so there are no findings to record. The review runs before the story closes, and its findings and resolutions are recorded here.
 
 ## Verification evidence
 

@@ -9,6 +9,17 @@ As a relationship manager, I want to submit a basis-point discount and a reason 
 - **AC-3:** A caller without the RM role gets 403.
 - **AC-4:** A second pending request for the same application gets 409. Two racing submits still leave exactly one pending request (database backstop).
 
+## Tests
+
+End-to-end tests: `SubmitRequestE2ETest`. Every test name starts with the criterion it proves.
+
+| Criterion | Proved by |
+|-----------|-----------|
+| AC-1 | `an RM submits a discount and gets 201 with a Location to the pending request`<br>`any known caller reads the request back`<br>`the submission time comes from the injected clock`<br>`the submission time follows the injected clock when it moves on`<br>`an unknown request id is a 404 Problem Details response`<br>`a malformed request id is a 400 Problem Details response` |
+| AC-2 | `an unknown application is a 404 Problem Details response`<br>`an invalid submission is rejected with 400`<br>`values on the exact boundaries are accepted`<br>`a rejected submission creates nothing` |
+| AC-3 | `a caller without the RM role cannot submit` |
+| AC-4 | `a second pending request for the same application gets 409`<br>`five racing submits leave exactly one pending request` |
+
 ## Plan
 
 The story was delivered in three thin slices, each one tested before the next started:
@@ -21,7 +32,7 @@ Product assumptions, in plain words: the discount is a whole number from 1 to 20
 
 ## Review notes
 
-Code-review findings for this story, and how each was resolved, are appended here when the story closes.
+**Status: not reviewed yet.** No code review has run on this story's code, so there are no findings to record. The review runs before the story closes, and its findings and resolutions are recorded here.
 
 ## Verification evidence
 
