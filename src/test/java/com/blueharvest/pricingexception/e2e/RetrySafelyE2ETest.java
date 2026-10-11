@@ -49,6 +49,7 @@ class RetrySafelyE2ETest extends E2ETestBase {
 
 		retry.then().statusCode(201).header("Location", equalTo(original.header("Location")));
 		assertThat(retry.asString()).isEqualTo(original.asString());
+		assertThat(historyEvents()).isEqualTo(1);
 		given().header("X-User-Id", "rm-anna").when().get(original.header("Location")).then().statusCode(200);
 		submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).then().statusCode(409);
 	}
@@ -213,6 +214,10 @@ class RetrySafelyE2ETest extends E2ETestBase {
 				Arguments.of("empty", ""),
 				Arguments.of("blank", "   "),
 				Arguments.of("256-character", "k".repeat(256)));
+	}
+
+	private long historyEvents() {
+		return JdbcClient.create(dataSource).sql("SELECT COUNT(*) FROM request_event").query(Long.class).single();
 	}
 
 	private static void holdUncommittedClaim(Connection connection, String key) throws Exception {

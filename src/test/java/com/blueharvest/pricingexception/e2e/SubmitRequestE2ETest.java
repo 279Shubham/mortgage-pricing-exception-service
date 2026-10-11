@@ -8,8 +8,10 @@ import static org.hamcrest.Matchers.nullValue;
 
 import io.restassured.response.Response;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -89,6 +91,21 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.then().statusCode(201)
 			.body("submittedAt", equalTo("2026-01-15T10:00:00Z"))
 			.body("currentRevision.createdAt", equalTo("2026-01-15T10:00:00Z"));
+	}
+
+	@Test
+	@DisplayName("US-02 AC-1: a new request records one SUBMITTED history event by the submitting RM")
+	void newRequestRecordsSubmittedEvent() {
+		String id = submit("rm-anna", "MA-1001", newIdempotencyKey(), VALID_BODY).path("id");
+
+		List<Map<String, Object>> events = historyEvents();
+		assertThat(events).hasSize(1);
+		Map<String, Object> event = events.get(0);
+		assertThat(event.get("request_id")).hasToString(id);
+		assertThat(event).containsEntry("event_type", "SUBMITTED")
+			.containsEntry("revision_number", 1)
+			.containsEntry("actor_id", "rm-anna");
+		assertThat(((OffsetDateTime) event.get("occurred_at")).toInstant()).isEqualTo(MutableClock.START);
 	}
 
 	@Test
@@ -214,6 +231,7 @@ class SubmitRequestE2ETest extends E2ETestBase {
 			.then().statusCode(400);
 		submit("reviewer-ben", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
 			.then().statusCode(403);
+		assertThat(storedRows()).isZero();
 
 		submit("rm-anna", "MA-1006", newIdempotencyKey(), body(100, VALID_REASON))
 			.then().statusCode(201);
@@ -269,6 +287,19 @@ class SubmitRequestE2ETest extends E2ETestBase {
 		finally {
 			pool.shutdown();
 		}
+	}
+
+	private List<Map<String, Object>> historyEvents() {
+		return JdbcClient.create(dataSource)
+			.sql("SELECT request_id, event_type, revision_number, actor_id, occurred_at FROM request_event")
+			.query().listOfRows();
+	}
+
+	private long storedRows() {
+		return JdbcClient.create(dataSource)
+			.sql("SELECT (SELECT COUNT(*) FROM pricing_exception_request) + (SELECT COUNT(*) FROM request_revision)"
+					+ " + (SELECT COUNT(*) FROM request_event) + (SELECT COUNT(*) FROM idempotency_record)")
+			.query(Long.class).single();
 	}
 
 	private static String body(int discountBps, String reason) {
