@@ -196,6 +196,33 @@ curl -H 'X-User-Id: application-process' localhost:8080/applications/MA-1002/app
 # []
 ```
 
+**Revise or withdraw.** While a request is pending, its requester can replace the discount and reason, or withdraw it. A revision gets the next revision number and its own advice; the earlier revisions stay readable on `/revisions`:
+
+```bash
+curl -X POST localhost:8080/pricing-exceptions/<id>/revise \
+  -H 'X-User-Id: rm-anna' -H 'Idempotency-Key: readme-demo-4' -H 'Content-Type: application/json' \
+  -d '{"discountBps":40,"reason":"Customer accepted a smaller discount after the call"}'
+
+curl -X POST localhost:8080/pricing-exceptions/<id>/withdraw -H 'X-User-Id: rm-anna' -H 'Idempotency-Key: readme-demo-5'
+
+curl -H 'X-User-Id: reviewer-ben' localhost:8080/pricing-exceptions/<id>/revisions
+```
+
+**Full history.** Any internal user can read everything that happened to a request, in order. Each event carries the discount, reason and advice of the revision it applies to, so the advice stands next to the human decision:
+
+```bash
+curl -H 'X-User-Id: rm-carl' localhost:8080/pricing-exceptions/<id>/history
+# {"requestId":"410641d6-99e4-4dbd-bbe6-ca31714041f1","applicationId":"MA-1001","status":"DECLINED","previousRequestId":null,"events":[
+#  {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.734Z","discountBps":75, ...,
+#   "advice":{"recommendation":"REVIEW_CAREFULLY", ...},"note":null},
+#  {"type":"REVISED","revisionNumber":2,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.781Z","discountBps":40, ...,
+#   "advice":{"recommendation":"APPROVE", ...},"note":null},
+#  {"type":"DECLINED","revisionNumber":2,"actorId":"reviewer-ben","occurredAt":"2026-10-11T21:50:47.813Z","discountBps":40, ...,
+#   "advice":{"recommendation":"APPROVE", ...},"note":"The written offer was not attached"}]}
+```
+
+Each stored event is also written to the service log after its transaction commits (`RequestEventPublisher`). That log line is where a message to a broker would go in production.
+
 ## Seed data
 
 All seed data is fictional. The service loads it on every start, and it resets on restart.
@@ -261,6 +288,8 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-03 Retry safely](docs/stories/US-03-retry-safely.md) | `RetrySafelyE2ETest` |
 | [US-04 Decide a request with advice](docs/stories/US-04-decide-a-request-with-advice.md) | `DecideRequestE2ETest`, `AdviceThresholdsE2ETest` |
 | [US-05 Read the approved discount](docs/stories/US-05-read-the-approved-discount.md) | `ApprovedDiscountE2ETest` |
+| [US-06 Revise or withdraw a pending request](docs/stories/US-06-revise-or-withdraw-a-pending-request.md) | `ReviseWithdrawE2ETest` |
+| [US-07 See a request's full history](docs/stories/US-07-see-a-request-full-history.md) | `RequestHistoryE2ETest` |
 
 From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
 
@@ -273,6 +302,7 @@ From US-04 onwards the story file is committed with its criteria before the test
 - **No cleanup job for idempotency records.** An expired record is removed only when the same key is reused, so production needs a scheduled cleanup. Until a record is removed, its stored response keeps a copy of the request's reason text.
 - **Postgres needs two changes.** Set `lock_timeout`, so that a retry of a call still in flight gets `409` instead of waiting. Replace the H2 generated column behind the one-pending rule with a partial unique index (H2 has no partial indexes).
 - **Concurrent decisions are not handled cleanly.** When two reviewers decide the same request at the same moment, or a decision, a revision and a withdrawal reach it together, only one change is stored, but the other caller gets a `500` with Spring Boot's default error body instead of a `409`. Nothing is half-written, and a retry with the same key is answered from the stored state.
+- **Events are only logged, with no outbox.** If the service stops between a commit and the log line, that event is stored but never announced. Production needs an outbox table and a broker.
 - **Errors are Spring's built-in Problem Details only.** There is no catalogue of error types. This is by design.
 
 ## Time spent

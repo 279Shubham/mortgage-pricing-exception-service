@@ -14,10 +14,13 @@ As an internal user, I want to see everything that happened to a pricing excepti
 
 End-to-end tests: `RequestHistoryE2ETest`. Every test name starts with the criterion it proves.
 
-A criterion gets its row in this table when its tests pass.
-
 | Criterion | Proved by |
 |-----------|-----------|
+| AC-1 | `the history lists every event in order with its revision, actor and time` |
+| AC-2 | `each event shows the discount, reason and advice of its revision`<br>`a decline shows the reviewer's note next to the advice` |
+| AC-3 | `the history shows the status and the earlier declined request` |
+| AC-4 | `the history lists every event in order with its revision, actor and time` (read by another relationship manager)<br>`the history of an unknown request gets 404` |
+| AC-5 | `each stored event is published as a log line, and a refused call publishes nothing` |
 
 ## Plan
 
@@ -34,4 +37,32 @@ Not reviewed yet.
 
 ## Verification evidence
 
-Not captured yet: the story is still open.
+Captured at `535a7b7`.
+
+**(a) Full build.** `./gradlew check` (complexity gate, architecture test, end-to-end suite) passed: 142 tests, 0 failures, 0 errors. Six of them are the US-07 tests. Before the code, at `c0e68b0`, five of those six failed; the 404 test passed only because the path did not exist yet.
+
+**(b) A running service.** One request was submitted by `rm-anna`, revised by her, and declined by `reviewer-ben`. In between, `rm-carl` tried to revise it and got `403`. Then `rm-carl` read the history:
+
+```
+revise 200
+revise by rm-carl 403
+decline 200
+
+GET /pricing-exceptions/410641d6-99e4-4dbd-bbe6-ca31714041f1/history
+{"requestId":"410641d6-99e4-4dbd-bbe6-ca31714041f1","applicationId":"MA-1001","status":"DECLINED","previousRequestId":null,"events":[
+ {"type":"SUBMITTED","revisionNumber":1,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.734Z","discountBps":75,"reason":"Retention offer matching a competitor quote","advice":{"recommendation":"REVIEW_CAREFULLY","rationale":"Review carefully: the discount of 75 bps is above the advisory threshold of 50 bps."},"note":null},
+ {"type":"REVISED","revisionNumber":2,"actorId":"rm-anna","occurredAt":"2026-10-11T21:50:47.781Z","discountBps":40,"reason":"Customer accepted a smaller discount after the call","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"note":null},
+ {"type":"DECLINED","revisionNumber":2,"actorId":"reviewer-ben","occurredAt":"2026-10-11T21:50:47.813Z","discountBps":40,"reason":"Customer accepted a smaller discount after the call","advice":{"recommendation":"APPROVE","rationale":"The discount and the length of the reason are within the advisory thresholds."},"note":"The written offer was not attached"}]}
+```
+
+The advisor recommended approving revision 2 and the reviewer declined it: both stand next to each other in the last event.
+
+**(c) Published events.** The service log of the same run has one line per stored event and none for the refused revise:
+
+```
+c.b.p.service.RequestEventPublisher      : Request event SUBMITTED on request 410641d6-99e4-4dbd-bbe6-ca31714041f1 revision 1 by rm-anna at 2026-10-11T21:50:47.734Z
+c.b.p.service.RequestEventPublisher      : Request event REVISED on request 410641d6-99e4-4dbd-bbe6-ca31714041f1 revision 2 by rm-anna at 2026-10-11T21:50:47.781Z
+c.b.p.service.RequestEventPublisher      : Request event DECLINED on request 410641d6-99e4-4dbd-bbe6-ca31714041f1 revision 2 by reviewer-ben at 2026-10-11T21:50:47.813Z
+```
+
+Not captured: a run of the suite inside the container (`make test`).
