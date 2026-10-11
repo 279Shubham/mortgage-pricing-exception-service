@@ -188,6 +188,7 @@ Left out, on purpose:
 - **Telemetry.** No metrics, no tracing and no dashboards. The health endpoint is the only operational signal.
 - **Any AI feature in the running service.** The advisor is plain rules. See [Where AI fits in a system like this](#where-ai-fits-in-a-system-like-this) for where a model would belong.
 - **Contract-first API.** The API is code-first: the controllers and the hand-written DTOs are the source, and the Swagger page is generated from them. Contract-first would be the reverse: one OpenAPI file as the contract, with the request and response classes and the controller interfaces generated from it at build time, so the documentation cannot drift and consumers can generate their client from the same file. It was not used here so that the DTOs could be Java records. I have not used contract-first generation with this Spring Boot version at work and do not know whether it can generate records; within the time limit I did not test it.
+- **Finding requests by application.** Requests can be read by id or listed by status. There is no filter by application id or by requester, so someone who lost the id of their request has to retry the submit with the same key or pick it out of the pending list.
 - **A polished UI.**
 
 ## Architecture and decisions
