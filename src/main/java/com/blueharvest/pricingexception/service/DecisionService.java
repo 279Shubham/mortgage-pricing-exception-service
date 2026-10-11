@@ -6,7 +6,6 @@ import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
 import com.blueharvest.pricingexception.model.RequestStatus;
 import com.blueharvest.pricingexception.model.Role;
-import com.blueharvest.pricingexception.repository.RequestEventRepository;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
@@ -17,11 +16,11 @@ public class DecisionService {
 
 	private final RequestLookup lookup;
 
-	private final RequestEventRepository events;
+	private final RequestEventPublisher events;
 
 	private final Clock clock;
 
-	public DecisionService(RequestLookup lookup, RequestEventRepository events, Clock clock) {
+	public DecisionService(RequestLookup lookup, RequestEventPublisher events, Clock clock) {
 		this.lookup = lookup;
 		this.events = events;
 		this.clock = clock;
@@ -40,7 +39,7 @@ public class DecisionService {
 		requireCurrentRevision(command.revisionNumber(), request);
 		Instant now = clock.instant();
 		request.decide(command.outcome(), caller.id(), command.revisionNumber(), command.note(), now);
-		events.save(new RequestEvent(request.getId(), command.outcome().eventType(), command.revisionNumber(),
+		events.publishAfterCommit(new RequestEvent(request.getId(), command.outcome().eventType(), command.revisionNumber(),
 				caller.id(), now));
 		return PricingExceptionResponse.from(request, lookup.currentRevisionOf(request));
 	}

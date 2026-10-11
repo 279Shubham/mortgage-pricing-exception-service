@@ -13,7 +13,6 @@ import com.blueharvest.pricingexception.model.RequestStatus;
 import com.blueharvest.pricingexception.model.Role;
 import com.blueharvest.pricingexception.repository.MortgageApplicationRepository;
 import com.blueharvest.pricingexception.repository.PricingExceptionRequestRepository;
-import com.blueharvest.pricingexception.repository.RequestEventRepository;
 import com.blueharvest.pricingexception.repository.RequestRevisionRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,7 +32,7 @@ public class PricingExceptionService {
 
 	private final RequestRevisionRepository revisions;
 
-	private final RequestEventRepository events;
+	private final RequestEventPublisher events;
 
 	private final RequestLookup lookup;
 
@@ -47,7 +46,7 @@ public class PricingExceptionService {
 
 	public PricingExceptionService(MortgageApplicationRepository applications,
 			PricingExceptionRequestRepository requests, RequestRevisionRepository revisions,
-			RequestEventRepository events, RequestLookup lookup, ReviewAdvisor advisor, Clock clock,
+			RequestEventPublisher events, RequestLookup lookup, ReviewAdvisor advisor, Clock clock,
 			@Value("${pricing.discount.min-bps}") int minBps, @Value("${pricing.discount.max-bps}") int maxBps) {
 		this.applications = applications;
 		this.requests = requests;
@@ -72,7 +71,7 @@ public class PricingExceptionService {
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
 		RequestRevision revision = revisions
 			.save(new RequestRevision(request.getId(), 1, command.discountBps(), command.reason(), advice, now));
-		events.save(new RequestEvent(request.getId(), RequestEventType.SUBMITTED, 1, caller.id(), now));
+		events.publishAfterCommit(new RequestEvent(request.getId(), RequestEventType.SUBMITTED, 1, caller.id(), now));
 		return PricingExceptionResponse.from(request, revision);
 	}
 
@@ -87,7 +86,7 @@ public class PricingExceptionService {
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
 		RequestRevision revision = revisions.save(new RequestRevision(request.getId(), number,
 				command.discountBps(), command.reason(), advice, now));
-		events.save(new RequestEvent(request.getId(), RequestEventType.REVISED, number, caller.id(), now));
+		events.publishAfterCommit(new RequestEvent(request.getId(), RequestEventType.REVISED, number, caller.id(), now));
 		return PricingExceptionResponse.from(request, revision);
 	}
 
@@ -97,7 +96,7 @@ public class PricingExceptionService {
 		requireRequester(caller, request);
 		requirePending(request);
 		request.withdraw();
-		events.save(new RequestEvent(request.getId(), RequestEventType.WITHDRAWN, request.getCurrentRevision(),
+		events.publishAfterCommit(new RequestEvent(request.getId(), RequestEventType.WITHDRAWN, request.getCurrentRevision(),
 				caller.id(), clock.instant()));
 		return withCurrentRevision(request);
 	}

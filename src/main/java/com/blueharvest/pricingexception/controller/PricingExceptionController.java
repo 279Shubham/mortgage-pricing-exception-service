@@ -3,6 +3,7 @@ package com.blueharvest.pricingexception.controller;
 import com.blueharvest.pricingexception.dto.ApproveRequestBody;
 import com.blueharvest.pricingexception.dto.ApprovedDiscountResponse;
 import com.blueharvest.pricingexception.dto.DeclineRequestBody;
+import com.blueharvest.pricingexception.dto.HistoryResponse;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.ReviseRequestBody;
 import com.blueharvest.pricingexception.dto.RevisionResponse;
@@ -80,6 +81,11 @@ class PricingExceptionController {
 	@GetMapping("/pricing-exceptions/{id}/revisions")
 	List<RevisionResponse> revisions(Actor caller, @PathVariable UUID id) {
 		return history.revisions(id);
+	}
+
+	@GetMapping("/pricing-exceptions/{id}/history")
+	HistoryResponse history(Actor caller, @PathVariable UUID id) {
+		return history.history(id);
 	}
 
 	@GetMapping("/pricing-exceptions")
