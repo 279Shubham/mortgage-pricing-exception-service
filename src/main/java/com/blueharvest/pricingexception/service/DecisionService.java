@@ -6,6 +6,8 @@ import com.blueharvest.pricingexception.model.PricingExceptionRequest;
 import com.blueharvest.pricingexception.model.RequestEvent;
 import com.blueharvest.pricingexception.model.RequestEventType;
 import com.blueharvest.pricingexception.model.RequestRevision;
+import com.blueharvest.pricingexception.model.RequestStatus;
+import com.blueharvest.pricingexception.model.Role;
 import com.blueharvest.pricingexception.repository.PricingExceptionRequestRepository;
 import com.blueharvest.pricingexception.repository.RequestEventRepository;
 import com.blueharvest.pricingexception.repository.RequestRevisionRepository;
@@ -36,7 +38,11 @@ public class DecisionService {
 
 	@Transactional
 	public PricingExceptionResponse decide(Actor caller, DecideCommand command) {
+		requireReviewer(caller);
 		PricingExceptionRequest request = findRequest(command.requestId());
+		requireAnotherRequester(caller, request);
+		requirePending(request);
+		requireCurrentRevision(command.revisionNumber(), request);
 		Instant now = clock.instant();
 		request.decide(command.outcome(), caller.id(), command.revisionNumber(), command.note(), now);
 		events.save(new RequestEvent(request.getId(), RequestEventType.valueOf(command.outcome().name()),
@@ -44,9 +50,34 @@ public class DecisionService {
 		return PricingExceptionResponse.from(request, currentRevision(request));
 	}
 
+	private void requireReviewer(Actor caller) {
+		if (!caller.roles().contains(Role.REVIEWER)) {
+			throw new ForbiddenException("Only a reviewer may decide a pricing exception");
+		}
+	}
+
 	private PricingExceptionRequest findRequest(UUID id) {
 		return requests.findById(id)
 			.orElseThrow(() -> new NotFoundException("Unknown pricing exception request " + id));
+	}
+
+	private void requireAnotherRequester(Actor caller, PricingExceptionRequest request) {
+		if (request.getRequestedBy().equals(caller.id())) {
+			throw new ForbiddenException("A reviewer may not decide their own request");
+		}
+	}
+
+	private void requirePending(PricingExceptionRequest request) {
+		if (request.getStatus() != RequestStatus.PENDING) {
+			throw new ConflictException("Request " + request.getId() + " is already " + request.getStatus());
+		}
+	}
+
+	private void requireCurrentRevision(int statedRevision, PricingExceptionRequest request) {
+		if (statedRevision != request.getCurrentRevision()) {
+			throw new ConflictException("Revision " + statedRevision + " is not the current revision "
+					+ request.getCurrentRevision());
+		}
 	}
 
 	private RequestRevision currentRevision(PricingExceptionRequest request) {

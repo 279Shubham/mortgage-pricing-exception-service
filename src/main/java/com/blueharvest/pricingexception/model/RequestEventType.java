@@ -3,6 +3,7 @@ package com.blueharvest.pricingexception.model;
 public enum RequestEventType {
 
 	SUBMITTED,
-	APPROVED
+	APPROVED,
+	DECLINED
 
 }

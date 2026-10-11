@@ -1,6 +1,7 @@
 package com.blueharvest.pricingexception.controller;
 
 import com.blueharvest.pricingexception.dto.ApproveRequestBody;
+import com.blueharvest.pricingexception.dto.DeclineRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
 import com.blueharvest.pricingexception.model.Actor;
@@ -64,8 +65,20 @@ class PricingExceptionController {
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody ApproveRequestBody body) {
 		DecideCommand command = new DecideCommand(id, RequestStatus.APPROVED, body.revisionNumber(), null);
-		IdempotencyScope scope = new IdempotencyScope(caller.id(), "POST /pricing-exceptions/" + id + "/approve",
-				idempotencyKey);
+		return decide(caller, "approve", idempotencyKey, command);
+	}
+
+	@PostMapping("/pricing-exceptions/{id}/decline")
+	ResponseEntity<String> decline(Actor caller, @PathVariable UUID id,
+			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
+			@Valid @RequestBody DeclineRequestBody body) {
+		DecideCommand command = new DecideCommand(id, RequestStatus.DECLINED, body.revisionNumber(), body.note());
+		return decide(caller, "decline", idempotencyKey, command);
+	}
+
+	private ResponseEntity<String> decide(Actor caller, String action, String idempotencyKey, DecideCommand command) {
+		IdempotencyScope scope = new IdempotencyScope(caller.id(),
+				"POST /pricing-exceptions/" + command.requestId() + "/" + action, idempotencyKey);
 		return toResponseEntity(idempotency.execute(scope, command, () -> ok(decisions.decide(caller, command))));
 	}
 
