@@ -34,6 +34,8 @@ class RetrySafelyE2ETest extends E2ETestBase {
 
 	private static final String VALID_BODY = body(25, VALID_REASON);
 
+	private static final String ONE_PENDING_DETAIL = "Application MA-1001 already has a pending request";
+
 	@Autowired
 	DataSource dataSource;
 
@@ -173,7 +175,8 @@ class RetrySafelyE2ETest extends E2ETestBase {
 
 		submit("rm-anna", "MA-1001", "key-a", body(30, VALID_REASON))
 			.then().statusCode(409)
-			.contentType("application/problem+json");
+			.contentType("application/problem+json")
+			.body("detail", equalTo(ONE_PENDING_DETAIL));
 	}
 
 	@Test
@@ -185,7 +188,10 @@ class RetrySafelyE2ETest extends E2ETestBase {
 		String annasId = anna.path("id");
 
 		Response carl = submit("rm-carl", "MA-1001", key, VALID_BODY);
-		carl.then().statusCode(409).contentType("application/problem+json");
+		carl.then()
+			.statusCode(409)
+			.contentType("application/problem+json")
+			.body("detail", equalTo(ONE_PENDING_DETAIL));
 		assertThat(carl.asString()).doesNotContain(annasId);
 
 		submit("rm-anna", "MA-1002", key, VALID_BODY)
@@ -205,7 +211,25 @@ class RetrySafelyE2ETest extends E2ETestBase {
 		CLOCK.advance(Duration.ofSeconds(1));
 		submit("rm-anna", "MA-1001", key, VALID_BODY)
 			.then().statusCode(409)
-			.contentType("application/problem+json");
+			.contentType("application/problem+json")
+			.body("detail", equalTo(ONE_PENDING_DETAIL));
+	}
+
+	@Test
+	@DisplayName("US-03 AC-5: after the 24h TTL a reused key creates a new request and replays that one")
+	void reusedKeyAfterTtlCreatesNewRequest() {
+		String key = newIdempotencyKey();
+		Response original = submit("rm-anna", "MA-1001", key, VALID_BODY);
+		original.then().statusCode(201);
+		JdbcClient.create(dataSource).sql("UPDATE pricing_exception_request SET status = 'WITHDRAWN'").update();
+
+		CLOCK.advance(Duration.ofHours(24));
+		Response reused = submit("rm-anna", "MA-1001", key, body(30, VALID_REASON));
+
+		reused.then().statusCode(201).header("Location", not(equalTo(original.header("Location"))));
+		submit("rm-anna", "MA-1001", key, body(30, VALID_REASON))
+			.then().statusCode(201)
+			.header("Location", equalTo(reused.header("Location")));
 	}
 
 	static Stream<Arguments> unusableKeys() {
