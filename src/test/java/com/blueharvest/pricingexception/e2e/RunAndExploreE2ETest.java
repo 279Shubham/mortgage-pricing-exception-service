@@ -1,6 +1,7 @@
 package com.blueharvest.pricingexception.e2e;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.contains;
@@ -13,12 +14,26 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 class RunAndExploreE2ETest extends E2ETestBase {
+
+	private static final Set<String> OPEN_PATHS = Set.of("/users", "/error");
+
+	@Autowired
+	@Qualifier("requestMappingHandlerMapping")
+	RequestMappingHandlerMapping handlerMapping;
 
 	@Test
 	@DisplayName("US-01 AC-1: the service reports UP on /actuator/health without X-User-Id")
@@ -157,6 +172,33 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.contentType("application/problem+json")
 			.body("status", equalTo(404))
 			.body("title", equalTo("Not Found"));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-3: every endpoint except the open ones is a 401 without X-User-Id")
+	void everyEndpointOutsideTheOpenOnesNeedsCallerIdentity() {
+		List<String> protectedEndpoints = handlerMapping.getHandlerMethods().keySet().stream()
+			.flatMap(RunAndExploreE2ETest::endpoints)
+			.filter(endpoint -> !OPEN_PATHS.contains(endpoint.split(" ")[1]))
+			.toList();
+		List<String> reachableWithoutCaller = protectedEndpoints.stream()
+			.filter(endpoint -> statusWithoutCaller(endpoint) != 401)
+			.toList();
+
+		assertThat(protectedEndpoints).contains("GET /me", "GET /applications");
+		assertThat(reachableWithoutCaller).isEmpty();
+	}
+
+	private static Stream<String> endpoints(RequestMappingInfo mapping) {
+		Set<RequestMethod> declared = mapping.getMethodsCondition().getMethods();
+		Set<RequestMethod> methods = declared.isEmpty() ? Set.of(RequestMethod.GET) : declared;
+		return mapping.getPatternValues().stream()
+			.flatMap(path -> methods.stream().map(method -> method + " " + path.replaceAll("\\{[^}]+}", "x")));
+	}
+
+	private static int statusWithoutCaller(String endpoint) {
+		String[] methodAndPath = endpoint.split(" ");
+		return given().when().request(methodAndPath[0], methodAndPath[1]).then().extract().statusCode();
 	}
 
 }

@@ -1,7 +1,6 @@
 package com.blueharvest.pricingexception.controller;
 
 import com.blueharvest.pricingexception.dto.ApplicationResponse;
-import com.blueharvest.pricingexception.model.Actor;
 import com.blueharvest.pricingexception.service.ApplicationService;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +16,7 @@ class ApplicationController {
 	}
 
 	@GetMapping("/applications")
-	List<ApplicationResponse> applications(Actor caller) {
+	List<ApplicationResponse> applications() {
 		return applicationService.findAll().stream().map(ApplicationResponse::from).toList();
 	}
 

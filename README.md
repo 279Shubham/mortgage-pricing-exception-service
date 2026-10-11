@@ -52,7 +52,7 @@ The tests are end-to-end only, and their names follow the story acceptance crite
 
 ## Explore the API
 
-**Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id. A missing or unknown id gets `401` with an `application/problem+json` body:
+**Identity.** Every call says who the caller is through the `X-User-Id` header, using one of the seeded user ids (see [Seed data](#seed-data)). `/actuator/health` and `/users` are open. Every other endpoint needs a known id: one interceptor checks the caller before any controller runs, so a new endpoint is protected by default. A missing or unknown id gets `401` with an `application/problem+json` body:
 
 ```json
 {"detail":"Missing or unknown X-User-Id","instance":"/me","status":401,"title":"Unauthorized"}
@@ -137,7 +137,7 @@ All seed data is fictional. The service loads it on every start, and it resets o
 
 ## Production readiness gaps
 
-- **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `X-User-Id` lookup in `ActorArgumentResolver` is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
+- **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `X-User-Id` lookup in `CallerInterceptor` is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
 - **Storage is in-memory.** H2 runs in memory and resets on every restart. The target is Postgres. The Flyway migrations already run in H2's PostgreSQL mode, so the swap is a datasource change plus a migration check.
 - **`GET /users` is open** only to feed the demo user switcher. In production it would be removed or protected.
 - **Single instance.** The service runs as one instance, and health is the only actuator endpoint exposed.
