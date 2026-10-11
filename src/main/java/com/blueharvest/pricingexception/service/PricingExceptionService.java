@@ -96,8 +96,12 @@ public class PricingExceptionService {
 		try {
 			return requests.saveAndFlush(request);
 		}
-		catch (DataIntegrityViolationException pendingExists) {
-			throw new ConflictException("Application " + request.getApplicationId() + " already has a pending request");
+		catch (DataIntegrityViolationException failure) {
+			if (UniqueConstraint.isViolatedBy(failure)) {
+				throw new ConflictException(
+						"Application " + request.getApplicationId() + " already has a pending request");
+			}
+			throw failure;
 		}
 	}
 
