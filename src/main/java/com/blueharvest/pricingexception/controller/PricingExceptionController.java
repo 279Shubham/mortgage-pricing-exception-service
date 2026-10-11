@@ -4,6 +4,7 @@ import com.blueharvest.pricingexception.dto.ApproveRequestBody;
 import com.blueharvest.pricingexception.dto.ApprovedDiscountResponse;
 import com.blueharvest.pricingexception.dto.DeclineRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
+import com.blueharvest.pricingexception.dto.ReviseRequestBody;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
 import com.blueharvest.pricingexception.model.Actor;
 import com.blueharvest.pricingexception.model.DecisionOutcome;
@@ -14,6 +15,7 @@ import com.blueharvest.pricingexception.service.IdempotencyScope;
 import com.blueharvest.pricingexception.service.IdempotencyService;
 import com.blueharvest.pricingexception.service.IdempotentResult;
 import com.blueharvest.pricingexception.service.PricingExceptionService;
+import com.blueharvest.pricingexception.service.ReviseCommand;
 import com.blueharvest.pricingexception.service.StoredResponse;
 import com.blueharvest.pricingexception.service.SubmitCommand;
 import jakarta.validation.Valid;
@@ -90,10 +92,22 @@ class PricingExceptionController {
 		return decide(caller, "decline", idempotencyKey, command);
 	}
 
+	@PostMapping("/pricing-exceptions/{id}/revise")
+	ResponseEntity<String> revise(Actor caller, @PathVariable UUID id,
+			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
+			@Valid @RequestBody ReviseRequestBody body) {
+		ReviseCommand command = new ReviseCommand(id, body.discountBps(), body.reason());
+		IdempotencyScope scope = scope(caller, id, "revise", idempotencyKey);
+		return toResponseEntity(idempotency.execute(scope, command, () -> ok(service.revise(caller, command))));
+	}
+
 	private ResponseEntity<String> decide(Actor caller, String action, String idempotencyKey, DecideCommand command) {
-		IdempotencyScope scope = new IdempotencyScope(caller.id(),
-				"POST /pricing-exceptions/" + command.requestId() + "/" + action, idempotencyKey);
+		IdempotencyScope scope = scope(caller, command.requestId(), action, idempotencyKey);
 		return toResponseEntity(idempotency.execute(scope, command, () -> ok(decisions.decide(caller, command))));
+	}
+
+	private static IdempotencyScope scope(Actor caller, UUID id, String action, String idempotencyKey) {
+		return new IdempotencyScope(caller.id(), "POST /pricing-exceptions/" + id + "/" + action, idempotencyKey);
 	}
 
 	private static IdempotentResult created(PricingExceptionResponse response) {

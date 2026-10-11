@@ -16,10 +16,11 @@ As a relationship manager, I want to revise or withdraw my pending request, so t
 
 End-to-end tests: `ReviseWithdrawE2ETest`. Every test name starts with the criterion it proves.
 
-No test exists yet. A criterion gets its row in this table when its tests are written.
+A criterion gets its row in this table when its tests pass.
 
 | Criterion | Proved by |
 |-----------|-----------|
+| AC-1 | `the requester revises a pending request and gets a new revision with its own advice` |
 | AC-7 | No automated test: two changes only overlap by timing, so a test for it would be flaky. It is checked on a running service instead, and the counts are recorded under Verification evidence |
 
 ## Plan

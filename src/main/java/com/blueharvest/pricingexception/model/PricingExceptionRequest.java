@@ -112,6 +112,11 @@ public class PricingExceptionRequest {
 		this.previousRequestId = previousRequestId;
 	}
 
+	public int moveToNextRevision() {
+		currentRevision += 1;
+		return currentRevision;
+	}
+
 	public void decide(DecisionOutcome outcome, String reviewerId, int revisionNumber, String note,
 			Instant decidedAt) {
 		this.status = outcome.status();

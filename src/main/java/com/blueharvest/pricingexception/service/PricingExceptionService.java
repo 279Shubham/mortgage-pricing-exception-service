@@ -76,6 +76,18 @@ public class PricingExceptionService {
 		return PricingExceptionResponse.from(request, revision);
 	}
 
+	@Transactional
+	public PricingExceptionResponse revise(Actor caller, ReviseCommand command) {
+		PricingExceptionRequest request = lookup.find(command.requestId());
+		Instant now = clock.instant();
+		int number = request.moveToNextRevision();
+		Advice advice = advisor.advise(command.discountBps(), command.reason());
+		RequestRevision revision = revisions.save(new RequestRevision(request.getId(), number,
+				command.discountBps(), command.reason(), advice, now));
+		events.save(new RequestEvent(request.getId(), RequestEventType.REVISED, number, caller.id(), now));
+		return PricingExceptionResponse.from(request, revision);
+	}
+
 	@Transactional(readOnly = true)
 	public PricingExceptionResponse find(UUID id) {
 		return withCurrentRevision(lookup.find(id));
