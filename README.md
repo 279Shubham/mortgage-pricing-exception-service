@@ -244,6 +244,14 @@ Where the trail is weaker than the loop above:
 - **How much process.** The first stories ran a heavy workflow with separate planning, review and verification agents. It produced far more planning text than code, so the last stories were planned and written directly in one session, with the same story-first, test-first order.
 - **Manual checks.** Beyond the suite, the finished service was exercised with a script of 126 HTTP checks, three races of twelve parallel calls, and a walk through the page in a browser. The results are in US-06 and US-08.
 
+## Where AI fits in a system like this
+
+The first question for "should this be an AI application?" is whether the decision is deterministic. That split drives the three points below.
+
+1. **The transactional core should stay non-agentic.** Submitting, revising, approving and reading a discount follow fixed rules with one right answer. The same input must always give the same result, and every result must be explainable from the stored data. An agent in that path adds cost and variance and takes away auditability, so this service keeps it as plain code.
+2. **Non-deterministic judgements are the good use case.** Some questions around a pricing exception have no fixed rule: does this request look like fraud, is it a repeat of an application that was already declined under another id, does the stated reason match the customer's credit picture. Those are judgement calls on patterns, and a model can help there. The natural entry point already exists: `ReviewAdvisor` is an interface, its advice is stored with the revision, and it never binds the reviewer. A model-backed advisor would slot in behind it, with a person still making the decision.
+3. **The best next step is an MCP server in front of the API.** Exposing the existing endpoints as MCP tools would let agentic clients, such as an assistant used by a relationship manager or a reviewer, work with the service in a controlled and native way. The agent gets a small, typed set of actions, and the service keeps enforcing every rule: roles, four eyes, the current revision, retry safety. The intelligence sits in the client, and the system of record stays deterministic.
+
 ## Production readiness gaps
 
 - **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `X-User-Id` lookup in `CallerInterceptor` is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
