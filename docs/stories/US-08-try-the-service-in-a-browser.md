@@ -54,4 +54,4 @@ Not reviewed yet.
 - A discount of 0, a five-character reason and a submit by a reviewer each showed the service's refusal in the red banner.
 - A reason containing `<b>` and `<img onerror=...>` was shown as text. No element was created and no script ran.
 
-A too-short reason shows only "Validation failure": the service does not say which field failed.
+At that point a too-short reason showed only "Validation failure". The service now names the field and the rule (`reason: size must be between 10 and 1000`); see the test added to US-02.

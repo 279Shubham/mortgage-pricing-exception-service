@@ -18,7 +18,7 @@ End-to-end tests: `RunAndExploreE2ETest`. Build gates: `ArchitectureTest` and th
 |-----------|-----------|
 | AC-1 | `the service reports UP on /actuator/health without X-User-Id`, plus the captured runs in evidence (c), (d) and (e) |
 | AC-2 | The captured `make test` run in evidence (b) |
-| AC-3 | `a seeded X-User-Id resolves to that user and roles on /me`<br>`each seeded X-User-Id resolves on /me to exactly its roles`<br>`anyone can list the six seeded users and their roles without X-User-Id`<br>`a known caller lists the six fictional seeded applications with integer standard rates in bps`<br>`exactly one seeded application has a standard rate below the 200 bps discount cap`<br>`every endpoint except the open ones is a 401 without X-User-Id`<br>`the actuator discovery page is closed and health is the only actuator endpoint` |
+| AC-3 | `a seeded X-User-Id resolves to that user and roles on /me`<br>`each seeded X-User-Id resolves on /me to exactly its roles`<br>`anyone can list the six seeded users and their roles without X-User-Id`<br>`the API description and its Swagger page are open and list the endpoints`<br>`a known caller lists the six fictional seeded applications with integer standard rates in bps`<br>`exactly one seeded application has a standard rate below the 200 bps discount cap`<br>`every endpoint except the open ones is a 401 without X-User-Id`<br>`the actuator discovery page is closed and health is the only actuator endpoint` |
 | AC-4 | `a missing X-User-Id is a 401 Problem Details response`<br>`an unknown X-User-Id is a 401 Problem Details response`<br>`an empty X-User-Id is a 401 Problem Details response`<br>`listing applications without X-User-Id is a 401 Problem Details response`<br>`an unknown path is a 404 Problem Details response even without X-User-Id` |
 | AC-5 | The five `ArchitectureTest` rules and the PMD gate, each shown failing on a temporary probe in evidence (f) |
 
@@ -30,6 +30,8 @@ The story was delivered in four thin slices, each one runnable and tested before
 2. **Identity.** `GET /me` resolves the `X-User-Id` caller through `UserService` and the Spring Data `UserRepository`, with 401 Problem Details for a missing or unknown id. Then the ArchUnit architecture test (layering, no direct clock calls), with temporary probes proving that both gates fail the build.
 3. **Exploring the seed.** `GET /applications` through `ApplicationService` and `MortgageApplicationRepository`, the open `GET /users`, all six seeded ids on `/me`, and the caller and error edge cases (unknown or empty id gives 401, an unknown path gives 404, both as Problem Details).
 4. **One-command run and test.** A four-stage Dockerfile, `make run` / `make stop` / `make test`, an amd64 run under emulation, a check from a fresh clone, and this documentation.
+
+**Follow-up (2026-10-12).** A Swagger page was added at `/swagger-ui/index.html`, generated from the controllers, with the `X-User-Id` header shown on every protected call. It had been planned from the start and left out; testing the finished service showed it was missing.
 
 **Follow-up (2026-10-11).** The code was reorganised from ports and adapters into a plain controller → service → repository layout, for simpler code. Only the Spring Data repositories are interfaces. Behaviour is unchanged: the same 16 end-to-end tests pass, and the architecture test now enforces the new layering.
 

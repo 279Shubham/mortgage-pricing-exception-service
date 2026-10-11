@@ -16,7 +16,7 @@ End-to-end tests: `SubmitRequestE2ETest`. Every test name starts with the criter
 | Criterion | Proved by |
 |-----------|-----------|
 | AC-1 | `an RM submits a discount and gets 201 with a Location to the pending request`<br>`any known caller reads the request back`<br>`the submission time comes from the injected clock`<br>`the submission time follows the injected clock when it moves on`<br>`an unknown request id is a 404 Problem Details response`<br>`a malformed request id is a 400 Problem Details response`<br>`a new request records one SUBMITTED history event by the submitting RM` |
-| AC-2 | `an unknown application is a 404 Problem Details response`<br>`an invalid submission is rejected with 400`<br>`values on the exact boundaries are accepted`<br>`a rejected submission creates nothing`<br>`an over-long application id is rejected with 400 before the caller's role is checked` |
+| AC-2 | `an unknown application is a 404 Problem Details response`<br>`an invalid submission is rejected with 400`<br>`values on the exact boundaries are accepted`<br>`a rejected submission creates nothing`<br>`a 400 names the field that was rejected and why`<br>`an over-long application id is rejected with 400 before the caller's role is checked` |
 | AC-3 | `a caller without the RM role cannot submit` |
 | AC-4 | `a second pending request for the same application gets 409`<br>`five racing submits leave exactly one pending request`<br>`an insert that fails for any reason but the one-pending rule is a 500, not a 409` |
 

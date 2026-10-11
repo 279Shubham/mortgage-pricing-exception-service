@@ -100,6 +100,8 @@ Things worth trying after that:
 
 ## API
 
+The same list, with every field and a form to try each call, is on the Swagger page at `http://localhost:8080/swagger-ui/index.html` (description at `/v3/api-docs`). It is served by the service and needs no network.
+
 | Call | Who | What it does |
 |------|-----|--------------|
 | `POST /applications/{applicationId}/pricing-exceptions` | relationship manager | Submit a request. `201` with `Location` |
@@ -114,10 +116,11 @@ Things worth trying after that:
 | `GET /applications/{applicationId}/approved-discounts` | any known user | The approval in effect: a list of one, or empty |
 | `GET /applications`, `GET /me` | any known user | The seeded applications; the caller and their roles |
 | `GET /users`, `GET /actuator/health` | open | The seeded users (feeds the page's user switcher); health |
+| `GET /swagger-ui/index.html`, `GET /v3/api-docs` | open | The API description |
 
-Errors are `application/problem+json`: `400` invalid input or a missing key, `401` a missing or unknown `X-User-Id`, `403` wrong role or not your request, `404` unknown request or application, `409` a rule conflict (already decided, superseded revision, second pending request), `422` a key reused with another body.
+Errors are `application/problem+json`: `400` invalid input or a missing key (the `detail` names the field, for example `reason: size must be between 10 and 1000`), `401` a missing or unknown `X-User-Id`, `403` wrong role or not your request, `404` unknown request or application, `409` a rule conflict (already decided, superseded revision, second pending request), `422` a key reused with another body.
 
-One interceptor checks the caller before any controller runs, so a new endpoint is protected by default. The header is a demo-only trust model, not authentication; see [Production readiness gaps](#production-readiness-gaps). There is no OpenAPI or Swagger page.
+One interceptor checks the caller before any controller runs, so a new endpoint is protected by default. The header is a demo-only trust model, not authentication; see [Production readiness gaps](#production-readiness-gaps).
 
 ## Seed data
 
@@ -168,7 +171,7 @@ Left out, on purpose:
 - **A message broker and an outbox.** Events are logged after commit, which shows where publishing belongs.
 - **A clean answer for the loser of a race.** Only one of two simultaneous changes is stored, but the loser gets a `500`. Accepted to keep the service small.
 - **Unit tests.** The end-to-end suite is the evidence of behaviour.
-- **An OpenAPI page and a polished UI.**
+- **A polished UI.**
 
 ## Architecture and decisions
 
