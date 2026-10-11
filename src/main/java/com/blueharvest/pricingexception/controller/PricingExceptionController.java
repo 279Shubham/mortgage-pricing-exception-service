@@ -1,8 +1,12 @@
 package com.blueharvest.pricingexception.controller;
 
+import com.blueharvest.pricingexception.dto.ApproveRequestBody;
 import com.blueharvest.pricingexception.dto.PricingExceptionResponse;
 import com.blueharvest.pricingexception.dto.SubmitRequestBody;
 import com.blueharvest.pricingexception.model.Actor;
+import com.blueharvest.pricingexception.model.RequestStatus;
+import com.blueharvest.pricingexception.service.DecideCommand;
+import com.blueharvest.pricingexception.service.DecisionService;
 import com.blueharvest.pricingexception.service.IdempotencyScope;
 import com.blueharvest.pricingexception.service.IdempotencyService;
 import com.blueharvest.pricingexception.service.IdempotentResult;
@@ -29,10 +33,14 @@ class PricingExceptionController {
 
 	private final PricingExceptionService service;
 
+	private final DecisionService decisions;
+
 	private final IdempotencyService idempotency;
 
-	PricingExceptionController(PricingExceptionService service, IdempotencyService idempotency) {
+	PricingExceptionController(PricingExceptionService service, DecisionService decisions,
+			IdempotencyService idempotency) {
 		this.service = service;
+		this.decisions = decisions;
 		this.idempotency = idempotency;
 	}
 
@@ -43,11 +51,7 @@ class PricingExceptionController {
 		SubmitCommand command = new SubmitCommand(applicationId, body.discountBps(), body.reason());
 		IdempotencyScope scope = new IdempotencyScope(caller.id(),
 				"POST /applications/" + applicationId + "/pricing-exceptions", idempotencyKey);
-		StoredResponse response = idempotency.execute(scope, command, () -> created(service.submit(caller, command)));
-		return ResponseEntity.status(response.status())
-			.location(URI.create(response.location()))
-			.contentType(MediaType.APPLICATION_JSON)
-			.body(response.body());
+		return toResponseEntity(idempotency.execute(scope, command, () -> created(service.submit(caller, command))));
 	}
 
 	@GetMapping("/pricing-exceptions/{id}")
@@ -55,8 +59,31 @@ class PricingExceptionController {
 		return service.find(id);
 	}
 
+	@PostMapping("/pricing-exceptions/{id}/approve")
+	ResponseEntity<String> approve(Actor caller, @PathVariable UUID id,
+			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
+			@Valid @RequestBody ApproveRequestBody body) {
+		DecideCommand command = new DecideCommand(id, RequestStatus.APPROVED, body.revisionNumber(), null);
+		IdempotencyScope scope = new IdempotencyScope(caller.id(), "POST /pricing-exceptions/" + id + "/approve",
+				idempotencyKey);
+		return toResponseEntity(idempotency.execute(scope, command, () -> ok(decisions.decide(caller, command))));
+	}
+
 	private static IdempotentResult created(PricingExceptionResponse response) {
 		return new IdempotentResult(HttpStatus.CREATED.value(), "/pricing-exceptions/" + response.id(), response);
+	}
+
+	private static IdempotentResult ok(PricingExceptionResponse response) {
+		return new IdempotentResult(HttpStatus.OK.value(), null, response);
+	}
+
+	private static ResponseEntity<String> toResponseEntity(StoredResponse response) {
+		ResponseEntity.BodyBuilder builder = ResponseEntity.status(response.status())
+			.contentType(MediaType.APPLICATION_JSON);
+		if (response.location() != null) {
+			builder.location(URI.create(response.location()));
+		}
+		return builder.body(response.body());
 	}
 
 }

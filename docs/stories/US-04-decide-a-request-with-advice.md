@@ -15,10 +15,11 @@ As a reviewer, I want to work the pending queue with non-binding advice and appr
 
 End-to-end tests: `DecideRequestE2ETest` and `AdviceThresholdsE2ETest`. Every test name starts with the criterion it proves.
 
-No test exists yet. A criterion gets its row in this table when its tests are written.
+A criterion gets its row in this table when its tests are written, so a criterion without a row is not proved yet.
 
 | Criterion | Proved by |
 |-----------|-----------|
+| AC-3 | `a reviewer approves a pending request by stating the revision reviewed` |
 
 ## Plan
 

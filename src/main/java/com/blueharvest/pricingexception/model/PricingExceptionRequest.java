@@ -35,6 +35,18 @@ public class PricingExceptionRequest {
 	@Column(name = "submitted_at")
 	private Instant submittedAt;
 
+	@Column(name = "decided_by")
+	private String decidedBy;
+
+	@Column(name = "decided_at")
+	private Instant decidedAt;
+
+	@Column(name = "decided_revision")
+	private Integer decidedRevision;
+
+	@Column(name = "decision_note")
+	private String decisionNote;
+
 	@Version
 	private Long version;
 
@@ -71,6 +83,30 @@ public class PricingExceptionRequest {
 
 	public Instant getSubmittedAt() {
 		return submittedAt;
+	}
+
+	public String getDecidedBy() {
+		return decidedBy;
+	}
+
+	public Instant getDecidedAt() {
+		return decidedAt;
+	}
+
+	public Integer getDecidedRevision() {
+		return decidedRevision;
+	}
+
+	public String getDecisionNote() {
+		return decisionNote;
+	}
+
+	public void decide(RequestStatus outcome, String reviewerId, int revisionNumber, String note, Instant decidedAt) {
+		this.status = outcome;
+		this.decidedBy = reviewerId;
+		this.decidedRevision = revisionNumber;
+		this.decisionNote = note;
+		this.decidedAt = decidedAt;
 	}
 
 }
