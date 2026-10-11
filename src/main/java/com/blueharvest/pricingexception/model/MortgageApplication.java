@@ -1,6 +1,5 @@
-package com.blueharvest.pricingexception.request.adapter.out.persistence;
+package com.blueharvest.pricingexception.model;
 
-import com.blueharvest.pricingexception.request.domain.MortgageApplication;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -8,7 +7,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "mortgage_application")
-class MortgageApplicationEntity {
+public class MortgageApplication {
 
 	@Id
 	private String id;
@@ -19,11 +18,19 @@ class MortgageApplicationEntity {
 	@Column(name = "standard_rate_bps")
 	private int standardRateBps;
 
-	protected MortgageApplicationEntity() {
+	protected MortgageApplication() {
 	}
 
-	MortgageApplication toDomain() {
-		return new MortgageApplication(id, borrowerLabel, standardRateBps);
+	public String getId() {
+		return id;
+	}
+
+	public String getBorrowerLabel() {
+		return borrowerLabel;
+	}
+
+	public int getStandardRateBps() {
+		return standardRateBps;
 	}
 
 }
