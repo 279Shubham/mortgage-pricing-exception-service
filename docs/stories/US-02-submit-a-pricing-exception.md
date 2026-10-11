@@ -15,10 +15,10 @@ End-to-end tests: `SubmitRequestE2ETest`. Every test name starts with the criter
 
 | Criterion | Proved by |
 |-----------|-----------|
-| AC-1 | `an RM submits a discount and gets 201 with a Location to the pending request`<br>`any known caller reads the request back`<br>`the submission time comes from the injected clock`<br>`the submission time follows the injected clock when it moves on`<br>`an unknown request id is a 404 Problem Details response`<br>`a malformed request id is a 400 Problem Details response` |
-| AC-2 | `an unknown application is a 404 Problem Details response`<br>`an invalid submission is rejected with 400`<br>`values on the exact boundaries are accepted`<br>`a rejected submission creates nothing` |
+| AC-1 | `an RM submits a discount and gets 201 with a Location to the pending request`<br>`any known caller reads the request back`<br>`the submission time comes from the injected clock`<br>`the submission time follows the injected clock when it moves on`<br>`an unknown request id is a 404 Problem Details response`<br>`a malformed request id is a 400 Problem Details response`<br>`a new request records one SUBMITTED history event by the submitting RM` |
+| AC-2 | `an unknown application is a 404 Problem Details response`<br>`an invalid submission is rejected with 400`<br>`values on the exact boundaries are accepted`<br>`a rejected submission creates nothing`<br>`an over-long application id is rejected with 400 before the caller's role is checked` |
 | AC-3 | `a caller without the RM role cannot submit` |
-| AC-4 | `a second pending request for the same application gets 409`<br>`five racing submits leave exactly one pending request` |
+| AC-4 | `a second pending request for the same application gets 409`<br>`five racing submits leave exactly one pending request`<br>`an insert that fails for any reason but the one-pending rule is a 500, not a 409` |
 
 ## Plan
 
@@ -32,7 +32,15 @@ Product assumptions, in plain words: the discount is a whole number from 1 to 20
 
 ## Review notes
 
-**Status: not reviewed yet.** No code review has run on this story's code, so there are no findings to record. The review runs before the story closes, and its findings and resolutions are recorded here.
+The story's code was reviewed once, together with US-03. The review found no critical issues. Each fix below is its own commit, and where behaviour changed the failing test was committed first. After the fixes the build is green with 84 tests, 46 of them for this story (commit `116baf5`).
+
+| Finding | Resolution | Commit |
+|---------|------------|--------|
+| An application id too long for the idempotency table made the key claim fail, and that failure was reported as 409 "still in progress" | The application id is limited to 20 characters and a longer one gets 400. The claim itself is fixed under US-03 | `02f9f75` (tests), `b18378d` (code) |
+| The one-pending insert turned every database failure into 409 "already has a pending request" | Only a unique-constraint violation becomes the 409. Any other failure is a 500 | `6f53cf8` (test), `a1ec086` (code) |
+| No test checked the `SUBMITTED` history event, so removing it would have left the suite green | A test reads the event row and checks the request, revision, actor and time. The "creates nothing" test now checks all four tables | `e14299e` |
+
+**Left open, by decision.** Two input edge cases were recorded and not fixed, because the API is only reached through the service's own UI: a reason padded with spaces passes the 10-character rule, and a JSON body with a duplicated field is accepted with the last value winning.
 
 ## Verification evidence
 

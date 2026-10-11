@@ -19,8 +19,8 @@ End-to-end tests: `RetrySafelyE2ETest`. Every test name starts with the criterio
 | AC-1 | `a retry with the same key and payload replays the original status, body and Location` |
 | AC-2 | `the same key with a different payload gets 422` |
 | AC-3 | `a submit without a usable Idempotency-Key gets 400`<br>`a 255-character Idempotency-Key is accepted`<br>`keys are used verbatim, so a key that differs only by case is a different key` |
-| AC-4 | `a retry while the original is still in flight gets 409`<br>`five concurrent identical retries create one request` |
-| AC-5 | `the same key from another user or on another route is independent`<br>`a key can be reused once the 24h TTL has passed` |
+| AC-4 | `a retry while the original is still in flight gets 409`<br>`five concurrent identical retries create one request`<br>`a key can be retried after a failed attempt`<br>`a key claim that fails for any reason but a duplicate is a 500, not an in-flight 409` |
+| AC-5 | `the same key from another user or on another route is independent`<br>`a key can be reused once the 24h TTL has passed`<br>`after the 24h TTL a reused key creates a new request and replays that one` |
 
 ## Plan
 
@@ -34,7 +34,16 @@ The behaviour follows the convention of the expired IETF Idempotency-Key draft a
 
 ## Review notes
 
-**Status: not reviewed yet.** No code review has run on this story's code, so there are no findings to record. The review runs before the story closes, and its findings and resolutions are recorded here.
+The story's code was reviewed once, together with US-02. The review found no critical issues and confirmed the central design: the key claim, the business write and the stored response commit or roll back together, and no path orphans a claim or runs the business write twice for one key. Each fix below is its own commit. After the fixes the build is green with 84 tests, 15 of them for this story (commit `116baf5`).
+
+| Finding | Resolution | Commit |
+|---------|------------|--------|
+| The key claim turned every database failure into 409 "still in progress" | Only a unique-constraint violation counts as an existing claim. Any other failure is a 500 | `02f9f75` (tests), `b18378d` (code) |
+| No test proved that the claim shares the business transaction | A test reuses a key after a failed attempt: 400 first, then 201 with the same key | `70d6656` |
+| Three tests asserted a 409 by status only, although three different paths return 409, and the reuse-after-expiry path never ran to a successful commit | Those tests now check the error's `detail` text, and a new test reuses an expired key successfully and replays the new response | `3ff3b5c` |
+| The in-flight 409 depended on the database's default lock timeout | The timeout is set explicitly to 2 seconds in the datasource URL | `116baf5` |
+
+**Left open.** The in-flight 409 itself is still asserted by status only.
 
 ## Verification evidence
 

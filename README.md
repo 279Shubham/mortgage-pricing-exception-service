@@ -189,7 +189,7 @@ The brief sets no limits for a pricing exception, so the service assumes these. 
 - **Reason.** 10 to 1000 characters, counted as characters, not bytes.
 - **One pending request per application.** A second one gets `409`. The database enforces this, so two submits that race still leave exactly one pending request.
 - **Reading.** Any known internal user may read any request.
-- **Unknown application.** A submit for an application id that does not exist gets `404`.
+- **Unknown application.** A submit for an application id that does not exist gets `404`. An id longer than 20 characters gets `400`.
 - **`Idempotency-Key`.** Required on every POST. Any non-blank value of at most 255 characters is accepted and used exactly as sent (no trimming, no change of case). A key belongs to one caller and one route, so another user, or the same user on another application, can use the same key without clashing. A key is kept for `pricing.idempotency.ttl` (default `24h`). The same key with the same body replays the stored response; a different body gets `422`; a retry while the first call is still running gets `409`. A replay returns the original status, `Location`, content type and body; other response headers are not stored. This follows the convention of the expired IETF Idempotency-Key draft and common industry practice. It is not a ratified standard.
 
 ## Stakeholder conflict: changing a submitted discount
@@ -215,7 +215,7 @@ Each story file in [`docs/stories/`](docs/stories/) is the record of one pass th
 | [US-02 Submit a pricing exception](docs/stories/US-02-submit-a-pricing-exception.md) | `SubmitRequestE2ETest` |
 | [US-03 Retry safely](docs/stories/US-03-retry-safely.md) | `RetrySafelyE2ETest` |
 
-From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code, and US-02 and US-03 are not reviewed yet.
+From US-04 onwards the story file is committed with its criteria before the tests and code, and the evidence is added when the story closes. The first three story files were written up after their code.
 
 ## Production readiness gaps
 
