@@ -56,11 +56,9 @@ public class PricingExceptionRequest {
 	protected PricingExceptionRequest() {
 	}
 
-	public PricingExceptionRequest(String applicationId, String requestedBy, UUID previousRequestId,
-			Instant submittedAt) {
+	public PricingExceptionRequest(String applicationId, String requestedBy, Instant submittedAt) {
 		this.applicationId = applicationId;
 		this.requestedBy = requestedBy;
-		this.previousRequestId = previousRequestId;
 		this.submittedAt = submittedAt;
 		this.status = RequestStatus.PENDING;
 		this.currentRevision = 1;
@@ -108,6 +106,10 @@ public class PricingExceptionRequest {
 
 	public String getDecisionNote() {
 		return decisionNote;
+	}
+
+	public void linkTo(UUID previousRequestId) {
+		this.previousRequestId = previousRequestId;
 	}
 
 	public void decide(RequestStatus outcome, String reviewerId, int revisionNumber, String note, Instant decidedAt) {

@@ -63,8 +63,9 @@ public class PricingExceptionService {
 		MortgageApplication application = findApplication(command.applicationId());
 		requireValidDiscount(command.discountBps(), application);
 		Instant now = clock.instant();
-		PricingExceptionRequest request = insertPending(new PricingExceptionRequest(application.getId(), caller.id(),
-				declinedPredecessorOf(application.getId()), now));
+		PricingExceptionRequest request = insertPending(
+				new PricingExceptionRequest(application.getId(), caller.id(), now));
+		request.linkTo(declinedPredecessorOf(request));
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
 		RequestRevision revision = revisions
 			.save(new RequestRevision(request.getId(), 1, command.discountBps(), command.reason(), advice, now));
@@ -125,9 +126,10 @@ public class PricingExceptionService {
 		}
 	}
 
-	private UUID declinedPredecessorOf(String applicationId) {
-		return requests.findFirstByApplicationIdOrderBySubmittedAtDesc(applicationId)
-			.filter(latest -> latest.getStatus() == RequestStatus.DECLINED)
+	private UUID declinedPredecessorOf(PricingExceptionRequest request) {
+		return requests
+			.findFirstByApplicationIdAndIdNotOrderBySubmittedAtDesc(request.getApplicationId(), request.getId())
+			.filter(previous -> previous.getStatus() == RequestStatus.DECLINED)
 			.map(PricingExceptionRequest::getId)
 			.orElse(null);
 	}
