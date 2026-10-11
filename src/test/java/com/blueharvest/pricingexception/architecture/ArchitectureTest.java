@@ -49,6 +49,12 @@ class ArchitectureTest {
 		.whereLayer("Repository").mayOnlyBeAccessedByLayers("Service")
 		.because("controllers go through services, and only services use repositories");
 
+	@ArchTest
+	static final ArchRule onlyServicesUseRepositories = noClasses()
+		.that().resideOutsideOfPackages("..service..", "..repository..")
+		.should().dependOnClassesThat().resideInAPackage("..repository..")
+		.because("only services use the Spring Data repositories");
+
 	private static boolean readsSystemTime(JavaAccess<?> access) {
 		AccessTarget target = access.getTarget();
 		boolean systemTime = target.getOwner().isEquivalentTo(System.class)
