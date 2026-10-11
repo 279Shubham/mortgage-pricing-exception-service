@@ -309,6 +309,37 @@ class ReviseWithdrawE2ETest extends E2ETestBase {
 			.contentType("application/problem+json");
 	}
 
+	@Test
+	@DisplayName("US-06 AC-1: earlier revisions keep their content and read as superseded")
+	void earlierRevisionsKeepContentAndReadAsSuperseded() {
+		String id = submitted("rm-anna", "MA-1001", 75, VALID_REASON);
+		revise("rm-anna", id, newIdempotencyKey(), body(40, REVISED_REASON)).then().statusCode(200);
+		revise("rm-anna", id, newIdempotencyKey(), body(30, "Client asked")).then().statusCode(200);
+
+		revisions(id)
+			.statusCode(200)
+			.body("number", contains(1, 2, 3))
+			.body("discountBps", contains(75, 40, 30))
+			.body("reason", contains(VALID_REASON, REVISED_REASON, "Client asked"))
+			.body("advice.recommendation", contains("REVIEW_CAREFULLY", "APPROVE", "REVIEW_CAREFULLY"))
+			.body("superseded", contains(true, true, false));
+
+		String neverRevised = submitted("rm-anna", "MA-1002", 25, VALID_REASON);
+		revisions(neverRevised)
+			.statusCode(200)
+			.body("number", contains(1))
+			.body("superseded", contains(false));
+
+		revisions(UUID.randomUUID().toString()).statusCode(404);
+	}
+
+	private static ValidatableResponse revisions(String id) {
+		return given()
+			.header("X-User-Id", "reviewer-ben")
+			.when().get("/pricing-exceptions/{id}/revisions", id)
+			.then();
+	}
+
 	private static ValidatableResponse approvedDiscounts(String applicationId) {
 		return given()
 			.header("X-User-Id", "application-process")
