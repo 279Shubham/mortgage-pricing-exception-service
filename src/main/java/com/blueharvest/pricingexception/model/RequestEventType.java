@@ -5,6 +5,7 @@ public enum RequestEventType {
 	SUBMITTED,
 	REVISED,
 	APPROVED,
-	DECLINED
+	DECLINED,
+	WITHDRAWN
 
 }

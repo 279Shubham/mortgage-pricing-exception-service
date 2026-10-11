@@ -117,6 +117,10 @@ public class PricingExceptionRequest {
 		return currentRevision;
 	}
 
+	public void withdraw() {
+		this.status = RequestStatus.WITHDRAWN;
+	}
+
 	public void decide(DecisionOutcome outcome, String reviewerId, int revisionNumber, String note,
 			Instant decidedAt) {
 		this.status = outcome.status();

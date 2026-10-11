@@ -79,6 +79,7 @@ public class PricingExceptionService {
 	@Transactional
 	public PricingExceptionResponse revise(Actor caller, ReviseCommand command) {
 		PricingExceptionRequest request = lookup.find(command.requestId());
+		requirePending(request);
 		Instant now = clock.instant();
 		int number = request.moveToNextRevision();
 		Advice advice = advisor.advise(command.discountBps(), command.reason());
@@ -86,6 +87,16 @@ public class PricingExceptionService {
 				command.discountBps(), command.reason(), advice, now));
 		events.save(new RequestEvent(request.getId(), RequestEventType.REVISED, number, caller.id(), now));
 		return PricingExceptionResponse.from(request, revision);
+	}
+
+	@Transactional
+	public PricingExceptionResponse withdraw(Actor caller, WithdrawCommand command) {
+		PricingExceptionRequest request = lookup.find(command.requestId());
+		requirePending(request);
+		request.withdraw();
+		events.save(new RequestEvent(request.getId(), RequestEventType.WITHDRAWN, request.getCurrentRevision(),
+				caller.id(), clock.instant()));
+		return withCurrentRevision(request);
 	}
 
 	@Transactional(readOnly = true)
@@ -125,6 +136,12 @@ public class PricingExceptionService {
 	private void requireRole(Actor caller, Role role) {
 		if (!caller.roles().contains(role)) {
 			throw new ForbiddenException("Only a relationship manager may submit a pricing exception");
+		}
+	}
+
+	private void requirePending(PricingExceptionRequest request) {
+		if (request.getStatus() != RequestStatus.PENDING) {
+			throw new ConflictException("Request " + request.getId() + " is already " + request.getStatus());
 		}
 	}
 

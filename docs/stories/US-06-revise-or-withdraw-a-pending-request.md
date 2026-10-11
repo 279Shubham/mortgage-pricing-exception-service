@@ -21,6 +21,8 @@ A criterion gets its row in this table when its tests pass.
 | Criterion | Proved by |
 |-----------|-----------|
 | AC-1 | `the requester revises a pending request and gets a new revision with its own advice` |
+| AC-3 | `the requester withdraws a pending request`<br>`a withdrawn request cannot be decided or revised, and the application accepts a new request` |
+| AC-6 | `a retried withdraw replays the original response and records one withdrawal` |
 | AC-7 | No automated test: two changes only overlap by timing, so a test for it would be flaky. It is checked on a running service instead, and the counts are recorded under Verification evidence |
 
 ## Plan

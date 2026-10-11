@@ -18,6 +18,7 @@ import com.blueharvest.pricingexception.service.PricingExceptionService;
 import com.blueharvest.pricingexception.service.ReviseCommand;
 import com.blueharvest.pricingexception.service.StoredResponse;
 import com.blueharvest.pricingexception.service.SubmitCommand;
+import com.blueharvest.pricingexception.service.WithdrawCommand;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -99,6 +100,14 @@ class PricingExceptionController {
 		ReviseCommand command = new ReviseCommand(id, body.discountBps(), body.reason());
 		IdempotencyScope scope = scope(caller, id, "revise", idempotencyKey);
 		return toResponseEntity(idempotency.execute(scope, command, () -> ok(service.revise(caller, command))));
+	}
+
+	@PostMapping("/pricing-exceptions/{id}/withdraw")
+	ResponseEntity<String> withdraw(Actor caller, @PathVariable UUID id,
+			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey) {
+		WithdrawCommand command = new WithdrawCommand(id);
+		IdempotencyScope scope = scope(caller, id, "withdraw", idempotencyKey);
+		return toResponseEntity(idempotency.execute(scope, command, () -> ok(service.withdraw(caller, command))));
 	}
 
 	private ResponseEntity<String> decide(Actor caller, String action, String idempotencyKey, DecideCommand command) {
