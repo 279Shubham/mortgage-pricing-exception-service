@@ -9,7 +9,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
@@ -190,6 +192,20 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.contentType("application/problem+json")
 			.body("status", equalTo(404))
 			.body("title", equalTo("Not Found"));
+	}
+
+	@Test
+	@DisplayName("US-01 AC-3: the API description and its Swagger page are open and list the endpoints")
+	void apiDescriptionAndSwaggerPageAreOpen() {
+		given()
+			.when().get("/v3/api-docs")
+			.then().statusCode(200)
+			.body("paths.'/pricing-exceptions/{id}/history'.get", notNullValue())
+			.body("paths.'/applications/{applicationId}/pricing-exceptions'.post.parameters.name",
+					hasItems("X-User-Id", "Idempotency-Key"))
+			.body("paths.'/me'.get.parameters.name", contains("X-User-Id"));
+
+		given().when().get("/swagger-ui/index.html").then().statusCode(200).contentType("text/html");
 	}
 
 	@Test

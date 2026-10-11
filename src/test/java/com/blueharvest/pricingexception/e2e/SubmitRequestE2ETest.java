@@ -227,6 +227,23 @@ class SubmitRequestE2ETest extends E2ETestBase {
 	}
 
 	@Test
+	@DisplayName("US-02 AC-2: a 400 names the field that was rejected and why")
+	void rejectedFieldIsNamedInTheError() {
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), body(25, "too short"))
+			.then().statusCode(400)
+			.contentType("application/problem+json")
+			.body("detail", equalTo("reason: size must be between 10 and 1000"));
+
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), body(25, VALID_REASON + "\\u0001"))
+			.then().statusCode(400)
+			.body("detail", equalTo("reason: must not contain control characters"));
+
+		submit("rm-lana", "MA-1001", newIdempotencyKey(), "{\"reason\":\"" + VALID_REASON + "\"}")
+			.then().statusCode(400)
+			.body("detail", equalTo("discountBps: must not be null"));
+	}
+
+	@Test
 	@DisplayName("US-02 AC-2: a rejected submission creates nothing")
 	void rejectedSubmissionCreatesNothing() {
 		submit("rm-lana", "MA-1006", newIdempotencyKey(), body(150, VALID_REASON))
