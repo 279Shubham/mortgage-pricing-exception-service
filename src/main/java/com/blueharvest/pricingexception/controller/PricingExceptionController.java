@@ -22,6 +22,10 @@ import com.blueharvest.pricingexception.service.idempotency.IdempotencyScope;
 import com.blueharvest.pricingexception.service.idempotency.IdempotencyService;
 import com.blueharvest.pricingexception.service.idempotency.IdempotentResult;
 import com.blueharvest.pricingexception.service.idempotency.StoredResponse;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -59,6 +63,11 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/applications/{applicationId}/pricing-exceptions")
+	@ApiResponse(responseCode = "201",
+			headers = @Header(name = "Location", description = "Where to read the new request",
+					schema = @Schema(type = "string")),
+			content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+					schema = @Schema(implementation = PricingExceptionResponse.class)))
 	ResponseEntity<String> submit(Actor caller, @PathVariable @Size(max = 20) String applicationId,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody SubmitRequestBody body) {
@@ -94,6 +103,8 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/pricing-exceptions/{id}/approve")
+	@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+			schema = @Schema(implementation = PricingExceptionResponse.class)))
 	ResponseEntity<String> approve(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody ApproveRequestBody body) {
@@ -102,6 +113,8 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/pricing-exceptions/{id}/decline")
+	@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+			schema = @Schema(implementation = PricingExceptionResponse.class)))
 	ResponseEntity<String> decline(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody DeclineRequestBody body) {
@@ -110,6 +123,8 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/pricing-exceptions/{id}/revise")
+	@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+			schema = @Schema(implementation = PricingExceptionResponse.class)))
 	ResponseEntity<String> revise(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey,
 			@Valid @RequestBody ReviseRequestBody body) {
@@ -119,6 +134,8 @@ class PricingExceptionController {
 	}
 
 	@PostMapping("/pricing-exceptions/{id}/withdraw")
+	@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+			schema = @Schema(implementation = PricingExceptionResponse.class)))
 	ResponseEntity<String> withdraw(Actor caller, @PathVariable UUID id,
 			@RequestHeader("Idempotency-Key") @NotBlank @Size(max = 255) String idempotencyKey) {
 		WithdrawCommand command = new WithdrawCommand(id);
