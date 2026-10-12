@@ -15,9 +15,11 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.ValidatableResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -217,15 +219,62 @@ class RunAndExploreE2ETest extends E2ETestBase {
 		ValidatableResponse description = given().when().get("/v3/api-docs").then().statusCode(200);
 
 		description
-			.body(submit + ".size()", equalTo(1))
+			.body(submit + ".'200'", nullValue())
 			.body(submit + ".'201'.content.'application/json'.schema.'$ref'", equalTo(request))
 			.body(submit + ".'201'.headers.Location", notNullValue());
 		for (String action : List.of("approve", "decline", "revise", "withdraw")) {
 			String responses = "paths.'/pricing-exceptions/{id}/" + action + "'.post.responses";
 			description
-				.body(responses + ".size()", equalTo(1))
+				.body(responses + ".'201'", nullValue())
 				.body(responses + ".'200'.content.'application/json'.schema.'$ref'", equalTo(request));
 		}
+	}
+
+	@Test
+	@DisplayName("US-01 AC-3: the API description gives every read call a JSON answer")
+	void apiDescriptionGivesEveryReadCallAJsonAnswer() {
+		JsonPath description = apiDescription();
+		Map<String, Map<String, Object>> paths = description.getMap("paths");
+
+		List<String> reads = paths.keySet().stream().filter(path -> paths.get(path).containsKey("get")).toList();
+
+		assertThat(reads).hasSize(8);
+		for (String path : reads) {
+			assertThat(description.getMap("paths.'" + path + "'.get.responses.'200'.content").keySet())
+				.as(path)
+				.containsExactly("application/json");
+		}
+	}
+
+	@Test
+	@DisplayName("US-01 AC-4: the API description lists the errors each call can return, as Problem Details")
+	void apiDescriptionListsTheErrorsOfEachCall() {
+		JsonPath description = apiDescription();
+
+		assertThat(responseCodes(description, "/applications/{applicationId}/pricing-exceptions", "post"))
+			.containsExactlyInAnyOrder("201", "400", "401", "403", "404", "409", "422");
+		for (String action : List.of("approve", "decline", "revise", "withdraw")) {
+			assertThat(responseCodes(description, "/pricing-exceptions/{id}/" + action, "post"))
+				.as(action)
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "422");
+		}
+		for (String read : List.of("", "/revisions", "/history")) {
+			assertThat(responseCodes(description, "/pricing-exceptions/{id}" + read, "get"))
+				.as(read)
+				.containsExactlyInAnyOrder("200", "400", "401", "404");
+		}
+		assertThat(responseCodes(description, "/pricing-exceptions", "get")).containsExactlyInAnyOrder("200", "400", "401");
+		assertThat(responseCodes(description, "/applications/{applicationId}/approved-discounts", "get"))
+			.containsExactlyInAnyOrder("200", "401");
+		assertThat(responseCodes(description, "/applications", "get")).containsExactlyInAnyOrder("200", "401");
+		assertThat(responseCodes(description, "/me", "get")).containsExactlyInAnyOrder("200", "401");
+		assertThat(responseCodes(description, "/users", "get")).containsExactly("200");
+
+		assertThat(description
+			.getString("paths.'/me'.get.responses.'401'.content.'application/problem+json'.schema.'$ref'"))
+			.isEqualTo("#/components/schemas/ProblemDetail");
+		assertThat(description.getMap("components.schemas.ProblemDetail.properties").keySet())
+			.containsExactlyInAnyOrder("title", "status", "detail", "instance");
 	}
 
 	@Test
@@ -242,6 +291,14 @@ class RunAndExploreE2ETest extends E2ETestBase {
 
 		assertThat(protectedEndpoints).contains("GET /me", "GET /applications");
 		assertThat(reachableWithoutCaller).isEmpty();
+	}
+
+	private static JsonPath apiDescription() {
+		return given().when().get("/v3/api-docs").then().statusCode(200).extract().jsonPath();
+	}
+
+	private static Set<String> responseCodes(JsonPath description, String path, String method) {
+		return description.<String, Object>getMap("paths.'" + path + "'." + method + ".responses").keySet();
 	}
 
 	private static Stream<String> endpoints(RequestMappingInfo mapping) {
