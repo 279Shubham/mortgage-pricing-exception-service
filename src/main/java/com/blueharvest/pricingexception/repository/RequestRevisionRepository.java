@@ -15,8 +15,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * from the request when the list is read and is never written to the revision row.
  *
  * <p>This is the database abstraction: Spring Data generates the implementation, so moving from
- * H2 to Postgres is a datasource configuration change (URL, driver, migrations checked), not a
- * code change.
+ * H2 to another relational database is a datasource configuration change (URL, driver, migrations
+ * checked), not a code change.
  */
 public interface RequestRevisionRepository extends JpaRepository<RequestRevision, UUID> {
 

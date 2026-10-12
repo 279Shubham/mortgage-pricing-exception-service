@@ -211,7 +211,7 @@ web/          caller check and error mapping
 | Decision | Why |
 |----------|-----|
 | Layers, not ports and adapters | Simpler to read. An earlier ports-and-adapters layout was removed for that reason |
-| Interfaces only for the repositories and `ReviewAdvisor` | Those are the two realistic swaps: H2 to Postgres, and rules to an LLM. Everything else is a plain class |
+| Interfaces only for the repositories and `ReviewAdvisor` | Those are the two realistic swaps: H2 for a durable database, and the rules for an LLM. Everything else is a plain class |
 | A request holds immutable, numbered revisions | An approval can point at exactly what was reviewed |
 | A version column on the request row | Two simultaneous changes cannot both be stored |
 | The one-pending rule is a database constraint | It holds even when two submits race |
@@ -220,7 +220,7 @@ web/          caller check and error mapping
 | Time comes from one injected clock | Tests control time, for example the 24-hour key expiry, without sleeping |
 | End-to-end tests only, named after acceptance criteria | The test report reads as the list of user stories |
 | Two build gates: method complexity and an architecture test | "Simple code" and the layering are checked, not just promised |
-| Flyway owns the schema; H2 runs in PostgreSQL mode | Reproducible from an empty database, and close to the production target |
+| Flyway owns the schema | Reproducible from an empty database |
 | Spring Boot 4.1 | Open-source support for the 3.5 line ended on 2026-06-30 |
 
 Each story file lists the decisions taken for that story.
@@ -280,11 +280,11 @@ The first question for "should this be an AI application?" is whether the decisi
 ## Production readiness gaps
 
 - **Identity is demo-only.** The `X-User-Id` header is a demo-only trust model: any caller can claim any seeded id. In production the `X-User-Id` lookup in `CallerInterceptor` is replaced by an OAuth2/OIDC resource server that takes the caller from a verified token.
-- **Storage is in-memory.** H2 runs in memory and resets on every restart. The target is Postgres. The Flyway migrations already run in H2's PostgreSQL mode, so the swap is a datasource change plus a migration check.
+- **Storage is in-memory.** H2 runs in memory and resets on every restart. Production needs a durable relational database. The schema is already in versioned Flyway migrations, so the move is a datasource change plus a check of the migrations.
 - **`GET /users` is open** only to feed the demo user switcher. In production it would be removed or protected.
 - **Single instance.** The service runs as one instance, and health is the only actuator endpoint exposed.
 - **No cleanup job for idempotency records.** An expired record is removed only when the same key is reused, so production needs a scheduled cleanup. Until a record is removed, its stored response keeps a copy of the request's reason text.
-- **Postgres needs two changes.** Set `lock_timeout`, so that a retry of a call still in flight gets `409` instead of waiting. Replace the H2 generated column behind the one-pending rule with a partial unique index (H2 has no partial indexes).
+- **Another database needs two changes.** Set a lock timeout, so that a retry of a call still in flight gets `409` instead of waiting. Replace the H2 generated column behind the one-pending rule with whatever that database offers, for example a partial unique index (H2 has none).
 - **Concurrent decisions are not handled cleanly.** When two reviewers decide the same request at the same moment, or a decision, a revision and a withdrawal reach it together, only one change is stored, but the other caller gets a `500` with Spring Boot's default error body instead of a `409`. Nothing is half-written, and a retry with the same key is answered from the stored state.
 - **Events are only logged, with no outbox.** If the service stops between a commit and the log line, that event is stored but never announced. Production needs an outbox table and a broker.
 - **Errors are Spring's built-in Problem Details only.** There is no catalogue of error types. This is by design.

@@ -60,7 +60,7 @@ The story's code was reviewed once, together with US-05, at commit `7d23ed6`. Th
 | The migration that adds the advice columns only worked on an empty table | V7 now adds the columns as nullable, backfills existing revisions and then sets NOT NULL. It was rewritten in place, because it had only ever run on in-memory databases | `8f42633` |
 | A decision took any request status as its outcome, so `PENDING` or `WITHDRAWN` compiled, and the history event type was found by enum name | A two-value `DecisionOutcome` (approve, decline) carries both the status and the event type | `299aeab` |
 
-The two migration fixes and the outcome type have no test of their own: the constraints and the backfill cannot be reached over HTTP, and the outcome type changes no behaviour. The migrations were checked by replaying V1 to V9 in a throwaway H2 database in PostgreSQL mode: the old V7 failed on a table with one row and the new one backfilled it, and V9 accepted four valid rows and refused eight invalid ones, each by the intended constraint.
+The two migration fixes and the outcome type have no test of their own: the constraints and the backfill cannot be reached over HTTP, and the outcome type changes no behaviour. The migrations were checked by replaying V1 to V9 in a throwaway H2 database: the old V7 failed on a table with one row and the new one backfilled it, and V9 accepted four valid rows and refused eight invalid ones, each by the intended constraint.
 
 **Left open, by decision.**
 

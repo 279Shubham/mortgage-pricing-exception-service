@@ -18,9 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
  * background job.
  *
  * <p>This is the database abstraction: Spring Data generates the implementation, so moving from
- * H2 to Postgres is a datasource configuration change. Postgres needs a {@code lock_timeout} so an
- * in-flight retry gets 409 rather than waiting. A Redis-backed store would replace this
- * interface's caller, {@code IdempotencyService}.
+ * H2 to another relational database is a datasource configuration change. That database needs a
+ * lock timeout so an in-flight retry gets 409 rather than waiting. A Redis-backed store would
+ * replace this interface's caller, {@code IdempotencyService}.
  */
 public interface IdempotencyRecordRepository extends JpaRepository<IdempotencyRecord, UUID> {
 

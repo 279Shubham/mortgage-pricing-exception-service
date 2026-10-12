@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * deletes users.
  *
  * <p>This is the database abstraction: Spring Data generates the implementation, so moving from
- * H2 to Postgres is a datasource configuration change, not a code change.
+ * H2 to another relational database is a datasource configuration change, not a code change.
  */
 public interface UserRepository extends JpaRepository<User, String> {
 

@@ -55,7 +55,7 @@ The lost link has no automated test. The gap is between two statements of one su
 | `6598b21` (after) | 1500 | 1448 | 52 | 0 |
 | `299aeab` (final) | 600 | 589 | 11 | 0 |
 
-Every decline returned 200. That the lookup after the insert sees the committed decline is argued for PostgreSQL (READ COMMITTED) and was only run on H2.
+Every decline returned 200. That the lookup after the insert sees the committed decline was only run on H2. On another database it relies on READ COMMITTED isolation.
 
 **Left open, by decision.**
 
