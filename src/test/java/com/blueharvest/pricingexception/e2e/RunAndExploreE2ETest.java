@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
+import io.restassured.response.ValidatableResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -206,6 +207,25 @@ class RunAndExploreE2ETest extends E2ETestBase {
 			.body("paths.'/me'.get.parameters.name", contains("X-User-Id"));
 
 		given().when().get("/swagger-ui/index.html").then().statusCode(200).contentType("text/html");
+	}
+
+	@Test
+	@DisplayName("US-01 AC-3: the API description gives each write call its real status and response shape")
+	void apiDescriptionShowsTheRealWriteResponses() {
+		String request = "#/components/schemas/PricingExceptionResponse";
+		String submit = "paths.'/applications/{applicationId}/pricing-exceptions'.post.responses";
+		ValidatableResponse description = given().when().get("/v3/api-docs").then().statusCode(200);
+
+		description
+			.body(submit + ".size()", equalTo(1))
+			.body(submit + ".'201'.content.'application/json'.schema.'$ref'", equalTo(request))
+			.body(submit + ".'201'.headers.Location", notNullValue());
+		for (String action : List.of("approve", "decline", "revise", "withdraw")) {
+			String responses = "paths.'/pricing-exceptions/{id}/" + action + "'.post.responses";
+			description
+				.body(responses + ".size()", equalTo(1))
+				.body(responses + ".'200'.content.'application/json'.schema.'$ref'", equalTo(request));
+		}
 	}
 
 	@Test
